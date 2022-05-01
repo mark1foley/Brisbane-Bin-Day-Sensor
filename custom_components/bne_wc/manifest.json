@@ -6,5 +6,6 @@
     "codeowners": ["@mark1foley"],
     "requirements": [
         "gtfs-realtime-bindings==0.0.5"
-    ]
+    ],
+    "version": "1.20220501.02"
 }
