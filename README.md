@@ -1,19 +1,18 @@
-# Home Assistant Realtime GTFS
+# Brisbane Bin Collection Day
 
-This project contains a new sensor that provides real-time departure data for
-local transit systems that provide gtfs feeds.
+This project contains a new sensor that provides details of bin collection day
 
 ## Installation (HACS) - Recommended
 0. Have [HACS](https://custom-components.github.io/hacs/installation/manual/) installed, this will allow you to easily update
-1. Add `https://github.com/zacs/ha-gtfs-rt` as a [custom repository](https://custom-components.github.io/hacs/usage/settings/#add-custom-repositories) as Type: Integration
-2. Click install under "GTFS-Realtime", restart your instance.
+1. Add `https://github.com/mark1foley/BNE_Waste_Collection` as a [custom repository](https://custom-components.github.io/hacs/usage/settings/#add-custom-repositories) as Type: Integration
+2. Click install under "BNE_Waste_Collection", restart your instance.
 
 ## Installation (Manual)
 1. Download this repository as a ZIP (green button, top right) and unzip the archive
-2. Copy `/custom_components/gtfs_rt` to your `<config_dir>/custom_components/` directory
+2. Copy `/custom_components/bne_wc` to your `<config_dir>/custom_components/` directory
    * You will need to create the `custom_components` folder if it does not exist
-   * On Hassio the final location will be `/config/custom_components/gtfs_rt`
-   * On Hassbian the final location will be `/home/homeassistant/.homeassistant/custom_components/gtfs_rt`
+   * On Hassio the final location will be `/config/custom_components/bne_wc`
+   * On Hassbian the final location will be `/home/homeassistant/.homeassistant/custom_components/bne_wc`
 
 ## Configuration
 
