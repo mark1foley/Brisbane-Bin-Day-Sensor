@@ -19,39 +19,19 @@ This project contains a new sensor that provides details of bin collection day
 Add the following to your `configuration.yaml` file:
 
 ```yaml
-# Example entry for Austin TX
 
 sensor:
-  - platform: gtfs_rt
-    trip_update_url: 'https://data.texas.gov/download/rmk2-acnw/application%2foctet-stream'
-    vehicle_position_url: 'https://data.texas.gov/download/eiei-9rpf/application%2Foctet-stream'
-    departures:
-    - name: Downtown to airport
-      route: 100
-      stopid: 514
+  - platform: bne_wc
+    suburb: '<suburb name>'
+    street: '<street name>'
+    house_number: '<house number>'
 ```
-
-```yaml
-# Example entry for Seattle WA
-
-- platform: gtfs_rt
-  trip_update_url: 'http://api.pugetsound.onebusaway.org/api/gtfs_realtime/trip-updates-for-agency/1.pb?key=TEST'
-  departures:
-  - name: "48 to Uni"
-    route: 100228
-    stopid: 36800
-```
-
 
 Configuration variables:
 
-- **trip_update_url** (*Required*): Provides bus route etas. See the **Finding Feeds** section at the bottom of the page for more details on how to find these
-- **vehicle_position_url** (*Optional*): Provides live bus position tracking on the home assistant map
-- **api_key** (*Optional*): If provided, this key will be sent with API
-requests in an "Authorization" header.
-- **departures** (*Required*): A list of routes and departure locations to watch
-- **route** (*Optional*): The name of the gtfs route
-- **stopid** (*Optional*): The stopid for the location you want etas for
+- **suburb** (*Required*): Name of suburb
+- **street** (*Optional*): Name of street
+- **house_number** (*Optional*): House number in street.  If not supplied the detail of the first house returned will be used.
 
 ## Reporting an Issue
 
