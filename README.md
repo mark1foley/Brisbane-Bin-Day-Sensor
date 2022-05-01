@@ -53,19 +53,6 @@ requests in an "Authorization" header.
 - **route** (*Optional*): The name of the gtfs route
 - **stopid** (*Optional*): The stopid for the location you want etas for
 
-## Screenshot
-
-![screenshot](https://i.imgur.com/VMcX9aG.png)
-
-## Finding Feeds
-
-[Transit Feeds](https://transitfeeds.com) is a fairly good source for realtime
-gtfs feeds. Search for your city, and then look for a feed that is tagged with
-'GTFS-RealTime'. There should be an 'official url' in the side bar that you can
-use. Routes and stops can be found by clicking on the regular gtfs feed, and
-finding the id for the stop you are interested in. Please feel free to message
-me or open an issue if you find other good sources.
-
 ## Reporting an Issue
 
 1. Setup your logger to print debug messages for this component using:
