@@ -1,9 +1,9 @@
 {
-    "domain": "gtfs_rt",
-    "name": "GTFS-Realtime",
-    "documentation": "https://github.com/zacs/ha-gtfs-rt",
+    "domain": "bne_wc",
+    "name": "BNE Waste Collection",
+    "documentation": "https://github.com/mark1foley/BNE_Waste_Collection",
     "dependencies": [],
-    "codeowners": ["@zacs"],
+    "codeowners": ["@mark1foley"],
     "requirements": [
         "gtfs-realtime-bindings==0.0.5"
     ]
