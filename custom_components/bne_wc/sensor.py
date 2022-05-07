@@ -25,6 +25,7 @@ ATTR_COLLECTION_DAY = "Collection Day"
 ATTR_COLLECTION_ZONE = "Collection Zone"
 ATTR_NEXT_COLLECTION_DATE = "Next Collection Date"
 ATTR_ICON = "Icon"
+ATTR_DUE_IN = "Due In"
 ATTR_ALERT_HOURS = "Alert Hours"
 ATTR_EXTRA_BIN = "Extra Bin"
 
@@ -38,8 +39,7 @@ CONF_ALERT_HOURS = 'alert_hours'
 DEFAULT_ICON = 'mdi:trash-can'
 DEFAULT_ALERT_HOURS = 12
 
-#MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=3600)
-MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=60)
+MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=300)
 
 WEEK_DAYS = 7
 DAY_HOURS = 24
@@ -114,8 +114,9 @@ class BneWasteCollectionSensor(Entity):
     @property
     def state(self):
         """Return the state of the sensor."""
-        collection_details = self._get_collection_details()
-        return due_in_hours(parse(collection_details[ATTR_NEXT_COLLECTION_DATE])) if is_valid_date(collection_details[ATTR_NEXT_COLLECTION_DATE]) else '-'
+        collection = self._get_collection_details()
+        
+        return 'On' if 0 < collection[ATTR_DUE_IN] <= self._alert_hours else 'Off'
 
     @property
     def extra_state_attributes(self):
@@ -131,7 +132,8 @@ class BneWasteCollectionSensor(Entity):
             ATTR_COLLECTION_DAY: collection_details[ATTR_COLLECTION_DAY],
             ATTR_COLLECTION_ZONE: collection_details[ATTR_COLLECTION_ZONE],
             ATTR_NEXT_COLLECTION_DATE: collection_details[ATTR_NEXT_COLLECTION_DATE],
-            ATTR_EXTRA_BIN: collection_details[ATTR_EXTRA_BIN]
+            ATTR_EXTRA_BIN: collection_details[ATTR_EXTRA_BIN],
+            ATTR_DUE_IN: collection_details[ATTR_DUE_IN]
         }
 
         return attrs
@@ -188,6 +190,10 @@ class BneWasteCollectionSensor(Entity):
             _LOGGER.debug("...{0}: {1}".format(ATTR_ALERT_HOURS,self.extra_state_attributes[ATTR_ALERT_HOURS]))
         except:
             _LOGGER.debug("...{0} not defined".format(ATTR_ALERT_HOURS))
+        try:
+            _LOGGER.debug("...{0}: {1}".format(ATTR_DUE_IN,self.extra_state_attributes[ATTR_DUE_IN]))
+        except:
+            _LOGGER.debug("...{0} not defined".format(ATTR_DUE_IN))
 
 class BneWasteCollection(object):
     """The Class for handling the data retrieval."""
@@ -232,6 +238,11 @@ class BneWasteCollection(object):
                     else:
                         collection[ATTR_NEXT_COLLECTION_DATE] = (date_today() + timedelta(days=(WEEK_DAYS+collection_day_no)-current_day_no)).isoformat()
 
+                    if is_valid_date(collection[ATTR_NEXT_COLLECTION_DATE]):
+                        collection[ATTR_DUE_IN] = due_in_hours(parse(collection[ATTR_NEXT_COLLECTION_DATE]))
+                    else:
+                        collection[ATTR_DUE_IN] = -1
+                        
                 else:
                     _LOGGER.error('Collection day dataset zero rows returned')
             else:            
