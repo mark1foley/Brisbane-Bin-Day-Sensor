@@ -1,4 +1,4 @@
-# Brisbane Bin Collection Day
+# Brisbane Bin Day Sensor
 
 This project contains a new sensor that provides details of bin collection day
 
