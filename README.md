@@ -5,7 +5,7 @@ This project contains a new Home Assistant sensor that provides details of bin d
 ## Installation (HACS) - Recommended
 0. Have [HACS](https://custom-components.github.io/hacs/installation/manual/) installed, this will allow you to easily update
 1. Add `https://github.com/mark1foley/Brisbane-Bin-Day-Sensor` as a [custom repository](https://custom-components.github.io/hacs/usage/settings/#add-custom-repositories) as Type: Integration
-2. Click install under "BNE_Waste_Collection", restart your instance.
+2. Click install under "Brisbane Bin Day Sensor", restart your instance.
 
 ## Installation (Manual)
 1. Download this repository as a ZIP (green button, top right) and unzip the archive
@@ -15,6 +15,8 @@ This project contains a new Home Assistant sensor that provides details of bin d
    * On Hassbian the final location will be `/home/homeassistant/.homeassistant/custom_components/bne_wc`
 
 ## Configuration
+
+You will need to obtain your property number from the [Brisbane City Council Waster Collection Data Open Data Site](https://www.data.brisbane.qld.gov.au/data/dataset/waste-collection-days/resource/adcb0791-71f1-4b0e-bb6f-b375ac244896).  Search for you address and copy the value in the Property_Number column.
 
 Add the following to your `configuration.yaml` file:
 
