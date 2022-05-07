@@ -24,7 +24,7 @@ import homeassistant.helpers.config_validation as cv
 
 _LOGGER = logging.getLogger(__name__)
 
-ATTR_PROPERTY_ID = "Property ID"
+ATTR_PROPERTY_NUMBER = "Property Number"
 ATTR_COLLECTION_DAY = "Collection Day"
 ATTR_COLLECTION_ZONE = "Collection Zone"
 ATTR_NEXT_COLLECTION_DATE = "Next Collection Date"
@@ -33,7 +33,7 @@ ATTR_ICON = "Icon"
 CONF_BASE_URL = 'base_url'
 CONF_WASTE_DAYS_TABLE = 'days_table'
 CONF_WASTE_WEEKS_TABLE = 'weeks_table'
-CONF_PROPERTY_ID = 'property_id'
+CONF_PROPERTY_NUMBER = 'property_number'
 CONF_ICON = 'icon'
 
 DEFAULT_ICON = 'mdi:trash-can'
@@ -57,7 +57,7 @@ def due_in_hours(time_stamp: datetime):
     """Get the remaining hours from now until a given datetime object."""
     _LOGGER.debug("due_in_hour calc")
     
-    diff = time_stamp - datetime.now()
+    diff = parse(time_stamp) - datetime.now()
     return math.ceil(diff.seconds/3660) + (diff.days*DAY_HOURS)
 
 def date_today():
@@ -71,7 +71,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_BASE_URL): cv.string,
     vol.Required(CONF_WASTE_DAYS_TABLE): cv.string,
     vol.Required(CONF_WASTE_WEEKS_TABLE): cv.string,
-    vol.Required(CONF_PROPERTY_ID): cv.string,
+    vol.Required(CONF_PROPERTY_NUMBER): cv.string,
     vol.Optional(CONF_ICON, default=DEFAULT_ICON): cv.string
 })
 
@@ -81,13 +81,13 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 def setup_platform(hass, config, add_devices, discovery_info=None):
     """Get the waste collection sensor."""
     
-    data = BneWasteCollection(config.get(CONF_BASE_URL), config.get(CONF_WASTE_DAYS_TABLE), config.get(CONF_WASTE_WEEKS_TABLE), config.get(CONF_PROPERTY_ID))
+    data = BneWasteCollection(config.get(CONF_BASE_URL), config.get(CONF_WASTE_DAYS_TABLE), config.get(CONF_WASTE_WEEKS_TABLE), config.get(CONF_PROPERTY_NUMBER))
     sensors = []
     sensors.append(BneWasteCollectionSensor(
         data, 
         config.get(CONF_NAME),
         config.get(CONF_ICON),
-        config.get(CONF_PROPERTY_ID)
+        config.get(CONF_PROPERTY_NUMBER)
     ))
 
     add_devices(sensors)
@@ -149,12 +149,12 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 class BneWasteCollectionSensor(Entity):
     """Implementation of a waste collection sensor."""
 
-    def __init__(self, data, name, icon, property_id):
+    def __init__(self, data, name, icon, property_number):
         """Initialize the sensor."""
         self.data = data
         self._name = name
         self._icon = icon
-        self._property_id = property_id
+        self._property_number = property_number
         self.update()
 
     def _get_collection_details(self):
@@ -180,7 +180,7 @@ class BneWasteCollectionSensor(Entity):
         """Return the state attributes."""
         collection_details = self._get_collection_details()
         attrs = {
-            ATTR_PROPERTY_ID: self._property_id,
+            ATTR_PROPERTY_NUMBER: self._property_number,
             ATTR_ICON: self._icon,
             ATTR_COLLECTION_DAY: collection_details[ATTR_COLLECTION_DAY],
             ATTR_COLLECTION_ZONE: collection_details[ATTR_COLLECTION_ZONE],
@@ -206,6 +206,10 @@ class BneWasteCollectionSensor(Entity):
         _LOGGER.debug("...{0}: {1}".format(ATTR_ICON,self._icon))
         _LOGGER.debug("...{0}: {1}".format("unit_of_measurement",self.unit_of_measurement))
         try:
+            _LOGGER.debug("...{0}: {1}".format(ATTR_PROPERTY_NUMBER,self.extra_state_attributes[ATTR_PROPERTY_NUMBER]))
+        except:
+            _LOGGER.debug("...{0} not defined".format(ATTR_PROPERTY_NUMBER))
+        try:
             _LOGGER.debug("...{0}: {1}".format(ATTR_COLLECTION_DAY,self.extra_state_attributes[ATTR_COLLECTION_DAY]))
         except:
             _LOGGER.debug("...{0} not defined".format(ATTR_COLLECTION_DAY))
@@ -213,41 +217,34 @@ class BneWasteCollectionSensor(Entity):
             _LOGGER.debug("...{0}: {1}".format(ATTR_COLLECTION_ZONE,self.extra_state_attributes[ATTR_COLLECTION_ZONE]))
         except:
             _LOGGER.debug("...{0} not defined".format(ATTR_COLLECTION_ZONE))
+        try:
+            _LOGGER.debug("...{0}: {1}".format(ATTR_NEXT_COLLECTION_DATE,self.extra_state_attributes[ATTR_COLLECTION_ZONE]))
+        except:
+            _LOGGER.debug("...{0} not defined".format(ATTR_NEXT_COLLECTION_DATE))
 
 class BneWasteCollection(object):
     """The Class for handling the data retrieval."""
 
-    def __init__(self, base_url, days_table, weeks_table, property_id):
+    def __init__(self, base_url, days_table, weeks_table, property_number):
         """Initialize the info object."""
         self._base_url = base_url
         self._days_table = days_table
         self._weeks_table = weeks_table
-        self._property_id = property_id
+        self._property_number = property_number
         self.info = {}
         
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     def update(self):
-        _LOGGER.info("base_url: {}".format(self._base_url))
-        _LOGGER.info("days_table: {}".format(self._days_table))
-        _LOGGER.info("weeks_table: {0}".format(self._weeks_table))
-        _LOGGER.info("property_id: {0}".format(self._property_id))
 
-        _LOGGER.debug("BneWasteCollection.Update")
+        self.info = self._get_collection_details() if self._property_number else {}
 
-        self.info = self._get_collection_details() if self._property_id else {}
-
-        _LOGGER.debug("...Property ID: {0}".format(self.info[ATTR_PROPERTY_ID]))
-        _LOGGER.debug("...New Collection Day: {0}".format(self.info[ATTR_COLLECTION_DAY]))
-        _LOGGER.debug("...New Collection Zone: {0}".format(self.info[ATTR_COLLECTION_ZONE]))
-        _LOGGER.debug("...Next Collection Date: {0}".format(self.info[ATTR_NEXT_COLLECTION_DATE]))
-    
     def _get_collection_details(self):
 
         collection = {}
         try:
-            collection[ATTR_PROPERTY_ID] = self._property_id
-            _LOGGER.debug("query: {0}{1}{2}{3}{4}".format(self._base_url,self._days_table,'&q={"PROPERTY_NUMBER":"',self._property_id, '"}'))
-            response = requests.get(self._base_url + self._days_table + '&q={"PROPERTY_NUMBER":"' + self._property_id + '"}')
+            collection[ATTR_PROPERTY_NUMBER] = self._property_number
+            _LOGGER.debug("query: {0}{1}{2}{3}{4}".format(self._base_url,self._days_table,'&q={"PROPERTY_NUMBER":"',self._property_number, '"}'))
+            response = requests.get(self._base_url + self._days_table + '&q={"PROPERTY_NUMBER":"' + self._property_number + '"}')
             json=response.json()
             if json['success'] == True:
                 _LOGGER.info("Successfully retrieved collection day dataset")
