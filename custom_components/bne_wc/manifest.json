@@ -1,11 +1,9 @@
 {
     "domain": "bne_wc",
     "name": "BNE Waste Collection",
-    "documentation": "https://github.com/mark1foley/BNE_Waste_Collection",
+    "documentation": "https://github.com/mark1foley/Brisbane Bin Day Sensor",
     "dependencies": [],
     "codeowners": ["@mark1foley"],
-    "requirements": [
-        "gtfs-realtime-bindings==0.0.5"
-    ],
-    "version": "1.20220501.02"
+    "requirements": [],
+    "version": "1.20220507.01"
 }
