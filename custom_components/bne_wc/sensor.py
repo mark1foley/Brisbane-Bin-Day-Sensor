@@ -24,7 +24,6 @@ ATTR_HOUSE_NUMBER = "House Number"
 ATTR_COLLECTION_DAY = "Collection Day"
 ATTR_COLLECTION_ZONE = "Collection Zone"
 ATTR_NEXT_COLLECTION_DATE = "Next Collection Date"
-ATTR_ICON = "Icon"
 ATTR_DUE_IN = "Due In"
 ATTR_ALERT_HOURS = "Alert Hours"
 ATTR_EXTRA_BIN = "Extra Bin"
@@ -116,7 +115,7 @@ class BneWasteCollectionSensor(Entity):
         """Return the state of the sensor."""
         collection = self._get_collection_details()
         
-        return 'On' if 0 < collection[ATTR_DUE_IN] <= self._alert_hours else 'Off'
+        return 'on' if 0 < collection[ATTR_DUE_IN] <= self._alert_hours else 'off'
 
     @property
     def extra_state_attributes(self):
@@ -124,7 +123,6 @@ class BneWasteCollectionSensor(Entity):
         collection_details = self._get_collection_details()
         attrs = {
             ATTR_PROPERTY_NUMBER: self._property_number,
-            ATTR_ICON: self._icon,
             ATTR_ALERT_HOURS: self._alert_hours,
             ATTR_SUBURB: collection_details[ATTR_SUBURB],
             ATTR_STREET: collection_details[ATTR_STREET],
@@ -152,7 +150,6 @@ class BneWasteCollectionSensor(Entity):
         self.data.update()
         _LOGGER.debug("Sensor Update:")
         _LOGGER.debug("...Name: {0}".format(self._name))
-        _LOGGER.debug("...{0}: {1}".format(ATTR_ICON,self._icon))
         _LOGGER.debug("...{0}: {1}".format("unit_of_measurement",self.unit_of_measurement))
         try:
             _LOGGER.debug("...{0}: {1}".format(ATTR_PROPERTY_NUMBER,self.extra_state_attributes[ATTR_PROPERTY_NUMBER]))
