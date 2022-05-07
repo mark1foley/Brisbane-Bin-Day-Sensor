@@ -59,6 +59,10 @@ The integration creates a sensor with the name specified in the configuration wi
 - **icon** (*String*): As specified in the configuration, or default of mdi:trash-can
 - **friendly_name** (*String*): As specified in the configuration
 
+The state of the sensor will be set to 'off' unless the 'Due In' attribute is less than or equal to the 'Alert Hours' when it will be set to 'on'.  The state will return to 'off' when the 'Due In' attribute reaches 0.
+
+## Alert
+
 ## Reporting an Issue
 
 1. Setup your logger to print debug messages for this component using:
