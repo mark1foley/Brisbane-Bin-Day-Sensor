@@ -45,24 +45,19 @@ Configuration variables:
 
 The integration creates a sensor with the name specified in the configuration with the following attributes.
 
-```sensor
-
-Property Number: 1132951
-Icon: mdi:trash-can
-Alert Hours: 54
-Suburb: YERONGA
-Street: AVOCA ST
-House Number: '14'
-Collection Day: TUESDAY
-Collection Zone: ZONE 2
-Next Collection Date: '2022-05-10T00:00:00'
-Extra Bin: Green/Garden
-Due In: 55
-unit_of_measurement: hr
-icon: mdi:trash-can
-friendly_name: Brisbane Bin Day
-
-```
+- **Property Number** (*Integer*): As specified in the configuration 
+- **Alert Hours** (*Integer*): As specified in the configuration 
+- **Suburb** (*String*): Name of suburb returned from the Open Data website for the specified property  
+- **Street** (*String*): Name of street, road etc returned from the Open Data website for the specified property  
+- **House Number** (*String*): Lot/street number returned from the Open Data website for the specified property  
+- **Collection Day** (*String*): Collection day name (MONDAY, TUESDAY etc) for the specified property  
+- **Collection Zone** (*String*): Collection zone for the specified property.  Used to determine which extra bin to put out for the next collection
+- **Next Collection Date** (*DateTime*): Date and time (at 12:00AM) of the next collection day for the specified property
+- **Extra Bin** (*String*): Name of the extra bin to be put out for the next collection (either 'Yellow/Recycle' or 'Green/Garden')
+- **Due In** (*Integer*): Number of hours until the 12:00AM on the next collection day for the specified property 
+- **unit_of_measurement**: hr
+- **icon** (*String*): As specified in the configuration, or default of mdi:trash-can
+- **friendly_name** (*String*): As specified in the configuration
 
 ## Reporting an Issue
 
