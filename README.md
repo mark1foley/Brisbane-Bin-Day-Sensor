@@ -1,6 +1,6 @@
 # Brisbane Bin Day Sensor
 
-This project contains a new sensor that provides details of bin collection day
+This project contains a new Home Assistant sensor that provides details of bin day
 
 ## Installation (HACS) - Recommended
 0. Have [HACS](https://custom-components.github.io/hacs/installation/manual/) installed, this will allow you to easily update
