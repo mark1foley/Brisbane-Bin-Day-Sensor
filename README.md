@@ -41,6 +41,10 @@ Configuration variables:
 - **icon** (*Optional*): Name of the icon to use for the sensor (defaults to mdi:trash-can)
 - **alert_hours** (*Optional*): Number of hours before bin day to raise alert (defaults to 12)
 
+Sensor:
+
+The integration creates a sensor with the name specified in the configuration with the following attributes.
+
 ## Reporting an Issue
 
 1. Setup your logger to print debug messages for this component using:
