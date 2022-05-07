@@ -63,6 +63,8 @@ The state of the sensor will be set to 'off' unless the 'Due In' attribute is le
 
 ## Alert
 
+A home assistant alert that uses notifications can be setup to monitor the state of the sensor.  Here is an example.
+
 ```yaml
   take_the_bin_out:
     name: Take the bin out
@@ -73,7 +75,6 @@ The state of the sensor will be set to 'off' unless the 'Due In' attribute is le
     skip_first: false
     message: "Take the bin out (+ {{ state_attr('sensor.brisbane_bin_day', 'Extra Bin') }})!!!"
     notifiers:
-      - mobile_app_mafone
       - persistent_notification
 ```
 
