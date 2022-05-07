@@ -63,6 +63,20 @@ The state of the sensor will be set to 'off' unless the 'Due In' attribute is le
 
 ## Alert
 
+```yaml
+  take_the_bin_out:
+    name: Take the bin out
+    entity_id: sensor.brisbane_bin_day
+    state: "on"
+    repeat: 1
+    can_acknowledge: false
+    skip_first: false
+    message: "Take the bin out (+ {{ state_attr('sensor.brisbane_bin_day', 'Extra Bin') }})!!!"
+    notifiers:
+      - mobile_app_mafone
+      - persistent_notification
+```
+
 ## Reporting an Issue
 
 1. Setup your logger to print debug messages for this component using:
