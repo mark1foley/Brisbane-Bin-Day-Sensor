@@ -16,7 +16,7 @@ This project contains a new Home Assistant sensor that provides details of bin d
 
 ## Configuration
 
-You will need to obtain your property number from the [Brisbane City Council Waster Collection Data Open Data Site](https://www.data.brisbane.qld.gov.au/data/dataset/waste-collection-days/resource/adcb0791-71f1-4b0e-bb6f-b375ac244896).  Search for you address and copy the value in the Property_Number column.
+You will need to obtain your property number from the [Brisbane City Council Waster Collection Data Open Data Site](https://www.data.brisbane.qld.gov.au/data/dataset/waste-collection-days/resource/adcb0791-71f1-4b0e-bb6f-b375ac244896).  Search for your address and copy the value in the Property_Number column of the table.
 
 Add the following to your `configuration.yaml` file:
 
