@@ -29,13 +29,17 @@ sensor:
     days_table: 'adcb0791-71f1-4b0e-bb6f-b375ac244896'
     weeks_table: 'c6dbb0b3-1e00-4bb8-8776-aa1b8f1ecfaa'
     property_number: '<value you copied above>'
+    icon: 'mdi:trash-can'
 ```
 
 Configuration variables:
 
-- **suburb** (*Required*): Name of suburb
-- **street** (*Optional*): Name of street
-- **house_number** (*Optional*): House number in street.  If not supplied the detail of the first house returned will be used.
+- **name** (*Required*): Name of the sensor in HA
+- **base_url** (*Required*): URL for the brisbane City Council Open Data website
+- **days_table** (*Required*): Name of the open data table that contain details of collection days for each property
+- **weeks_table** (*Required*): Name of the open data table that contain details which additional bins are collected each week
+- **property_number** (*Required*): Unique property number to be used (from the Brisbane City Council Waster Collection Data Open Data Site referenced above
+- **icon** (*Optional*): Name of the icon to use for the sensor (defaults to mdi:trash-can)
 
 ## Reporting an Issue
 
