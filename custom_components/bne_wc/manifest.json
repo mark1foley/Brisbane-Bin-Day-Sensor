@@ -1,7 +1,8 @@
 {
     "domain": "bne_wc",
     "name": "Brisbane Bin Day Sensor",
-    "documentation": "https://github.com/mark1foley/Brisbane Bin Day Sensor",
+    "documentation": "https://github.com/mark1foley/Brisbane-Bin-Day-Sensor",
+    "issue_tracker": "https://github.com/mark1foley/Brisbane-Bin-Day-Sensor/issues",
     "dependencies": [],
     "codeowners": ["@mark1foley"],
     "requirements": [],
