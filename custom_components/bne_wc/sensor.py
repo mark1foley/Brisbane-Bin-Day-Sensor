@@ -38,7 +38,8 @@ CONF_ALERT_HOURS = 'alert_hours'
 DEFAULT_ICON = 'mdi:trash-can'
 DEFAULT_ALERT_HOURS = 12
 
-MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=3600)
+#MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=3600)
+MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=60)
 
 WEEK_DAYS = 7
 DAY_HOURS = 24
@@ -227,9 +228,9 @@ class BneWasteCollection(object):
                     collection_day_no = strptime(collection[ATTR_COLLECTION_DAY],'%A').tm_wday
                     current_day_no = datetime.today().weekday()
                     if collection_day_no > current_day_no:
-                        collection[ATTR_NEXT_COLLECTION_DATE] = date_today() + timedelta(days=collection_day_no-current_day_no)
+                        collection[ATTR_NEXT_COLLECTION_DATE] = (date_today() + timedelta(days=collection_day_no-current_day_no)).isoformat()
                     else:
-                        collection[ATTR_NEXT_COLLECTION_DATE] = date_today() + timedelta(days=(WEEK_DAYS+collection_day_no)-current_day_no)
+                        collection[ATTR_NEXT_COLLECTION_DATE] = (date_today() + timedelta(days=(WEEK_DAYS+collection_day_no)-current_day_no)).isoformat()
 
                 else:
                     _LOGGER.error('Collection day dataset zero rows returned')
