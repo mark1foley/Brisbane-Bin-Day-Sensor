@@ -4,7 +4,7 @@ This project contains a new Home Assistant sensor that provides details of bin d
 
 ## Installation (HACS) - Recommended
 0. Have [HACS](https://custom-components.github.io/hacs/installation/manual/) installed, this will allow you to easily update
-1. Add `https://github.com/mark1foley/BNE_Waste_Collection` as a [custom repository](https://custom-components.github.io/hacs/usage/settings/#add-custom-repositories) as Type: Integration
+1. Add `https://github.com/mark1foley/Brisbane-Bin-Day-Sensor` as a [custom repository](https://custom-components.github.io/hacs/usage/settings/#add-custom-repositories) as Type: Integration
 2. Click install under "BNE_Waste_Collection", restart your instance.
 
 ## Installation (Manual)
