@@ -39,6 +39,7 @@ Configuration variables:
 - **weeks_table** (*Required*): Name of the open data table that contain details which additional bins are collected each week
 - **property_number** (*Required*): Unique property number to be used (from the Brisbane City Council Waster Collection Data Open Data Site referenced above
 - **icon** (*Optional*): Name of the icon to use for the sensor (defaults to mdi:trash-can)
+- **alert_hours** (*Optional*): Number of hours before bin day to raise alert (defaults to 12)
 
 ## Reporting an Issue
 
