@@ -41,9 +41,28 @@ Configuration variables:
 - **icon** (*Optional*): Name of the icon to use for the sensor (defaults to mdi:trash-can)
 - **alert_hours** (*Optional*): Number of hours before bin day to raise alert (defaults to 12)
 
-Sensor:
+## Sensor
 
 The integration creates a sensor with the name specified in the configuration with the following attributes.
+
+```sensor
+
+Property Number: 1132951
+Icon: mdi:trash-can
+Alert Hours: 54
+Suburb: YERONGA
+Street: AVOCA ST
+House Number: '14'
+Collection Day: TUESDAY
+Collection Zone: ZONE 2
+Next Collection Date: '2022-05-10T00:00:00'
+Extra Bin: Green/Garden
+Due In: 55
+unit_of_measurement: hr
+icon: mdi:trash-can
+friendly_name: Brisbane Bin Day
+
+```
 
 ## Reporting an Issue
 
