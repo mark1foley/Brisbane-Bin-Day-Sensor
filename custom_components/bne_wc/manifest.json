@@ -1,6 +1,6 @@
 {
     "domain": "bne_wc",
-    "name": "BNE Waste Collection",
+    "name": "Brisbane Bin Day Sensor",
     "documentation": "https://github.com/mark1foley/Brisbane Bin Day Sensor",
     "dependencies": [],
     "codeowners": ["@mark1foley"],
