@@ -61,6 +61,8 @@ The integration creates a sensor with the name specified in the configuration wi
 
 The state of the sensor will be set to 'off' unless the 'Due In' attribute is less than or equal to the 'Alert Hours' when it will be set to 'on'.  The state will return to 'off' when the 'Due In' attribute reaches 0.
 
+The sensor updates every **5 minutes**
+
 ## Alert
 
 A home assistant alert that uses notifications can be setup to monitor the state of the sensor.  Here is an example.
