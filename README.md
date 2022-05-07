@@ -40,7 +40,7 @@ Configuration variables:
 logger:
   default: info
   logs:
-    custom_components.gtfs_rt: debug
+    custom_components.bne_wc: debug
 ```
 2. Restart HA
 3. Verify you're still having the issue
