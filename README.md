@@ -29,7 +29,6 @@ sensor:
     days_table: 'adcb0791-71f1-4b0e-bb6f-b375ac244896'
     weeks_table: 'c6dbb0b3-1e00-4bb8-8776-aa1b8f1ecfaa'
     property_number: '<value you copied above>'
-    icon: 'mdi:trash-can'
 ```
 
 Configuration variables:
