@@ -254,12 +254,13 @@ class BneWasteCollection(object):
         # Explanation:
         # If the ZONE for the address matches the ZONE for the week, it is yellow recycling bin week.
         # If the ZONE for the address does not match the ZONE for the week, it is green waste bin week.
-        weekStartDate = date_today() - timedelta(days=week_day())
+        collection_day_no = strptime(collection[ATTR_COLLECTION_DAY],'%A').tm_wday
+        weekStartDate = parse(collection[ATTR_NEXT_COLLECTION_DATE]) - timedelta(days=collection_day_no)
         weekStartString = f'{weekStartDate.day}/{weekStartDate:%m/%Y}'
 
         try:
-            _LOGGER.debug("...Week query: {0}{1}{2}{3}{4}{5}{6}".format(self._base_url,self._weeks_table,'&q={"WEEK_STARTING":"',weekStartString,',"ZONE":',collection[ATTR_COLLECTION_ZONE], '"}'))
-            response = requests.get(self._base_url + self._weeks_table + '&q={"WEEK_STARTING":"' + weekStartString + ',"ZONE":' + collection[ATTR_COLLECTION_ZONE] + '"}')
+            _LOGGER.debug("...Week query: {0}{1}{2}{3}{4}{5}{6}".format(self._base_url,self._weeks_table,'&q={"WEEK_STARTING":"',weekStartString,'","ZONE":"',collection[ATTR_COLLECTION_ZONE], '"}'))
+            response = requests.get(self._base_url + self._weeks_table + '&q={"WEEK_STARTING":"' + weekStartString + '","ZONE":"' + collection[ATTR_COLLECTION_ZONE] + '"}')
             json=response.json()
             if json['success'] == True:
                 dic=json['result']
