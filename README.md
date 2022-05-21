@@ -1,6 +1,8 @@
 # Brisbane Bin Day Sensor
 
-This project contains a new Home Assistant sensor that provides details of bin day
+This project creates two new Home Assistant binary sensors that provide details of bin collections in the Brisbane City Council area.  One sensor is for the "normal" (or optionally green bin) week while the other is for the recycle (yellow bin) week.  Two sensors are used to enable the creation of alerts in Home Assistant with names specific to the weeks.
+
+While most Councils provide details of their waste collection schedules via their Open Data portals there is no consistency or standards in how the data is structured (especially when it comes to the recycle week determination).  Therefore, it is not possible to create a generic sensor but you are welcome to fork this code and cusrtomize it for your particular Council. 
 
 ## Installation (HACS) - Recommended
 0. Have [HACS](https://custom-components.github.io/hacs/installation/manual/) installed, this will allow you to easily update
@@ -25,6 +27,7 @@ Add the following to your `configuration.yaml` file:
 sensor:
   - platform: bne_wc
     name: Brisbane Bin Day
+    scan_interval: 300
     base_url: https://www.data.brisbane.qld.gov.au/data/api/3/action/datastore_search?resource_id=
     days_table: adcb0791-71f1-4b0e-bb6f-b375ac244896
     weeks_table: c6dbb0b3-1e00-4bb8-8776-aa1b8f1ecfaa
@@ -34,17 +37,21 @@ sensor:
 Configuration variables:
 
 - **name** (*Required*): Name of the sensor in HA
+- **scan_interval** (*Optional*): Home Assistant updates sensors every 30 seconds by default.  As this data changes slowly I suggest a larger interval 
 - **base_url** (*Required*): URL for the brisbane City Council Open Data website
 - **days_table** (*Required*): Name of the open data table that contain details of collection days for each property
 - **weeks_table** (*Required*): Name of the open data table that contain details which additional bins are collected each week
 - **property_number** (*Required*): Unique property number to be used (from the Brisbane City Council Waster Collection Data Open Data Site referenced above
-- **icon** (*Optional*): Name of the icon to use for the sensor (defaults to mdi:trash-can)
+- **icon** (*Optional*): Name of the icon to use for the "normal" week sensor (defaults to mdi:trash-can)
+- **recycle_icon** (*Optional*): Name of the icon to use for the "recycle" week sensor (defaults to mdi:trash-can)
 - **alert_hours** (*Optional*): Number of hours before bin day to raise alert (defaults to 12)
+- **green_bin** (*Optional*): true/false to indicate if you have a green bin (reflected in the Extra Bin attribute for the "normal" weeks
 
 ## Sensor
 
 The integration creates a sensor with the name specified in the configuration with the following attributes.
 
+- **name** (*String*): As specified in the configuration.  The "recycle" week sensor has the suffix " (Recycle)"
 - **Property Number** (*Integer*): As specified in the configuration 
 - **Alert Hours** (*Integer*): As specified in the configuration 
 - **Suburb** (*String*): Name of suburb returned from the Open Data website for the specified property  
@@ -52,20 +59,18 @@ The integration creates a sensor with the name specified in the configuration wi
 - **House Number** (*String*): Lot/street number returned from the Open Data website for the specified property  
 - **Collection Day** (*String*): Collection day name (MONDAY, TUESDAY etc) for the specified property  
 - **Collection Zone** (*String*): Collection zone for the specified property.  Used to determine which extra bin to put out for the next collection
-- **Next Collection Date** (*DateTime*): Date and time (at 12:00AM) of the next collection day for the specified property
+- **Next Collection Date** (*DateTime*): Date and time (at 12:00AM) of the next collection day for the specified property 
 - **Extra Bin** (*String*): Name of the extra bin to be put out for the next collection (either 'Yellow/Recycle' or 'Green/Garden')
 - **Due In** (*Integer*): Number of hours until the 12:00AM on the next collection day for the specified property 
-- **unit_of_measurement**: hr
+- **Recycle Week**: true/false to indicate if this is the "recycle" week sensor
 - **icon** (*String*): As specified in the configuration, or default of mdi:trash-can
 - **friendly_name** (*String*): As specified in the configuration
 
 The state of the sensor will be set to 'off' unless the 'Due In' attribute is less than or equal to the 'Alert Hours' when it will be set to 'on'.  The state will return to 'off' when the 'Due In' attribute reaches 0.
 
-The sensor updates every **5 minutes**
+## Alerts
 
-## Alert
-
-A home assistant alert that uses notifications can be setup to monitor the state of the sensor.  Here is an example.
+Home assistant alerts that use notifications can be setup to monitor the state of the sensors.  Here are some examples.
 
 ```yaml
   take_the_bin_out:
@@ -80,6 +85,17 @@ A home assistant alert that uses notifications can be setup to monitor the state
       - persistent_notification
 ```
 
+```yaml
+  take_the_recycle_bin_out:
+    name: Take the bins out (+ yellow bin)
+    entity_id: sensor.brisbane_bin_day_recycle
+    state: "on"
+    repeat: 60
+    can_acknowledge: false
+    skip_first: false
+    notifiers:
+      - persistent_notification
+```
 ## Reporting an Issue
 
 1. Setup your logger to print debug messages for this component using:
