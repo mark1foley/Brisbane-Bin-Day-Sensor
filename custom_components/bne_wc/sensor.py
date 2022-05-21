@@ -9,8 +9,8 @@ from calendar import weekday
 from datetime import datetime, timedelta, date
 from time import strptime
 
-from homeassistant.components.sensor import PLATFORM_SCHEMA
-from homeassistant.const import (CONF_NAME)
+from homeassistant.components.binary_sensor import PLATFORM_SCHEMA
+from homeassistant.const import (CONF_NAME, STATE_ON, STATE_OFF)
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import Throttle
 import homeassistant.helpers.config_validation as cv
@@ -27,17 +27,22 @@ ATTR_NEXT_COLLECTION_DATE = "Next Collection Date"
 ATTR_DUE_IN = "Due In"
 ATTR_ALERT_HOURS = "Alert Hours"
 ATTR_EXTRA_BIN = "Extra Bin"
+ATTR_RECYCLE_WEEK = "Recycle Week"
 
 CONF_BASE_URL = 'base_url'
 CONF_WASTE_DAYS_TABLE = 'days_table'
 CONF_WASTE_WEEKS_TABLE = 'weeks_table'
 CONF_PROPERTY_NUMBER = 'property_number'
 CONF_ICON = 'icon'
+CONF_RECYCLE_ICON = 'recycle_icon'
 CONF_ALERT_HOURS = 'alert_hours'
+CONF_GREEN_BIN = 'green_bin'
 
 DEFAULT_ICON = 'mdi:trash-can'
+DEFAULT_RECYCLE_ICON = 'mdi:recycle'
 DEFAULT_ALERT_HOURS = 12
 
+# Throttle updates to every 5 minutes 
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=300)
 
 WEEK_DAYS = 7
@@ -70,19 +75,33 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_WASTE_WEEKS_TABLE): cv.string,
     vol.Required(CONF_PROPERTY_NUMBER): cv.positive_int,
     vol.Optional(CONF_ALERT_HOURS, default=DEFAULT_ALERT_HOURS): cv.positive_int,
-    vol.Optional(CONF_ICON, default=DEFAULT_ICON): cv.string
+    vol.Optional(CONF_ICON, default=DEFAULT_ICON): cv.string,
+    vol.Optional(CONF_RECYCLE_ICON, default=DEFAULT_RECYCLE_ICON): cv.string,
+    vol.Optional(CONF_GREEN_BIN, default=False): cv.boolean
 })
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
     """Get the waste collection sensor."""
     
-    data = BneWasteCollection(config.get(CONF_BASE_URL), config.get(CONF_WASTE_DAYS_TABLE), config.get(CONF_WASTE_WEEKS_TABLE), config.get(CONF_PROPERTY_NUMBER))
+    data_normal = BneWasteCollection(config.get(CONF_BASE_URL), config.get(CONF_WASTE_DAYS_TABLE), config.get(CONF_WASTE_WEEKS_TABLE), config.get(CONF_PROPERTY_NUMBER),config.get(CONF_GREEN_BIN),False)
+    data_recycle = BneWasteCollection(config.get(CONF_BASE_URL), config.get(CONF_WASTE_DAYS_TABLE), config.get(CONF_WASTE_WEEKS_TABLE), config.get(CONF_PROPERTY_NUMBER),config.get(CONF_GREEN_BIN),True)
+    recycleSensorName = config.get(CONF_NAME) + " (Recycle)"
+
     sensors = []
+
+    # Add normal week sensor
     sensors.append(BneWasteCollectionSensor(
-        data, 
+        data_normal, 
         config.get(CONF_NAME),
         config.get(CONF_ICON),
-        config.get(CONF_PROPERTY_NUMBER),
+        config.get(CONF_ALERT_HOURS)
+    ))
+
+    # Add recycle week sensor
+    sensors.append(BneWasteCollectionSensor(
+        data_recycle, 
+        recycleSensorName,
+        config.get(CONF_RECYCLE_ICON),
         config.get(CONF_ALERT_HOURS)
     ))
 
@@ -91,12 +110,11 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 class BneWasteCollectionSensor(Entity):
     """Implementation of a waste collection sensor."""
 
-    def __init__(self, data, name, icon, property_number, alert_hours):
+    def __init__(self, data, name, icon, alert_hours):
         """Initialize the sensor."""
         self.data = data
         self._name = name
         self._icon = icon
-        self._property_number = property_number
         self._alert_hours = alert_hours
         self.update()
 
@@ -115,15 +133,15 @@ class BneWasteCollectionSensor(Entity):
         """Return the state of the sensor."""
         collection = self._get_collection_details()
         
-        return 'on' if 0 < collection[ATTR_DUE_IN] <= self._alert_hours else 'off'
+        return STATE_ON if 0 < collection[ATTR_DUE_IN] <= self._alert_hours else STATE_OFF
 
     @property
     def extra_state_attributes(self):
         """Return the state attributes."""
         collection_details = self._get_collection_details()
         attrs = {
-            ATTR_PROPERTY_NUMBER: self._property_number,
             ATTR_ALERT_HOURS: self._alert_hours,
+            ATTR_PROPERTY_NUMBER: collection_details[ATTR_PROPERTY_NUMBER],
             ATTR_SUBURB: collection_details[ATTR_SUBURB],
             ATTR_STREET: collection_details[ATTR_STREET],
             ATTR_HOUSE_NUMBER: collection_details[ATTR_HOUSE_NUMBER],
@@ -131,15 +149,11 @@ class BneWasteCollectionSensor(Entity):
             ATTR_COLLECTION_ZONE: collection_details[ATTR_COLLECTION_ZONE],
             ATTR_NEXT_COLLECTION_DATE: collection_details[ATTR_NEXT_COLLECTION_DATE],
             ATTR_EXTRA_BIN: collection_details[ATTR_EXTRA_BIN],
-            ATTR_DUE_IN: collection_details[ATTR_DUE_IN]
+            ATTR_DUE_IN: collection_details[ATTR_DUE_IN],
+            ATTR_RECYCLE_WEEK: collection_details[ATTR_RECYCLE_WEEK]
         }
 
         return attrs
-
-    @property
-    def unit_of_measurement(self):
-        """Return the unit this state is expressed in."""
-        return "hr"
 
     @property
     def icon(self):
@@ -150,7 +164,6 @@ class BneWasteCollectionSensor(Entity):
         self.data.update()
         _LOGGER.debug("Sensor Update:")
         _LOGGER.debug("...Name: {0}".format(self._name))
-        _LOGGER.debug("...{0}: {1}".format("unit_of_measurement",self.unit_of_measurement))
         try:
             _LOGGER.debug("...{0}: {1}".format(ATTR_PROPERTY_NUMBER,self.extra_state_attributes[ATTR_PROPERTY_NUMBER]))
         except:
@@ -176,7 +189,7 @@ class BneWasteCollectionSensor(Entity):
         except:
             _LOGGER.debug("...{0} not defined".format(ATTR_COLLECTION_ZONE))
         try:
-            _LOGGER.debug("...{0}: {1}".format(ATTR_NEXT_COLLECTION_DATE,self.extra_state_attributes[ATTR_COLLECTION_ZONE]))
+            _LOGGER.debug("...{0}: {1}".format(ATTR_NEXT_COLLECTION_DATE,self.extra_state_attributes[ATTR_NEXT_COLLECTION_DATE]))
         except:
             _LOGGER.debug("...{0} not defined".format(ATTR_NEXT_COLLECTION_DATE))
         try:
@@ -191,16 +204,22 @@ class BneWasteCollectionSensor(Entity):
             _LOGGER.debug("...{0}: {1}".format(ATTR_DUE_IN,self.extra_state_attributes[ATTR_DUE_IN]))
         except:
             _LOGGER.debug("...{0} not defined".format(ATTR_DUE_IN))
+        try:
+            _LOGGER.debug("...{0}: {1}".format(ATTR_RECYCLE_WEEK,self.extra_state_attributes[ATTR_RECYCLE_WEEK]))
+        except:
+            _LOGGER.debug("...{0} not defined".format(ATTR_RECYCLE_WEEK))
 
 class BneWasteCollection(object):
     """The Class for handling the data retrieval."""
 
-    def __init__(self, base_url, days_table, weeks_table, property_number):
+    def __init__(self, base_url, days_table, weeks_table, property_number, green_bin, recycle_week):
         """Initialize the info object."""
         self._base_url = base_url
         self._days_table = days_table
         self._weeks_table = weeks_table
         self._property_number = property_number
+        self._green_bin = green_bin
+        self._recycle_week = recycle_week
         self.info = {}
         
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
@@ -212,13 +231,14 @@ class BneWasteCollection(object):
     def _get_collection_details(self):
 
         collection = {}
+        _LOGGER.info("Updating Waste Collection data")
         try:
             collection[ATTR_PROPERTY_NUMBER] = self._property_number
-            _LOGGER.debug("...Day query: {0}{1}{2}{3}{4}".format(self._base_url,self._days_table,'&q={"PROPERTY_NUMBER":"',self._property_number, '"}'))
+            _LOGGER.info("...Day query: {0}{1}{2}{3}{4}".format(self._base_url,self._days_table,'&q={"PROPERTY_NUMBER":"',self._property_number, '"}'))
             response = requests.get(self._base_url + self._days_table + '&q={"PROPERTY_NUMBER":"' + str(self._property_number) + '"}')
             json=response.json()
             if json['success'] == True:
-                _LOGGER.info("Successfully retrieved collection day dataset")
+                _LOGGER.info("...Successfully retrieved collection day dataset")
                 dic=json['result']
                 df = pd.DataFrame(dic['records'])
                 if len(df.index) > 0:
@@ -234,12 +254,7 @@ class BneWasteCollection(object):
                         collection[ATTR_NEXT_COLLECTION_DATE] = (date_today() + timedelta(days=collection_day_no-current_day_no)).isoformat()
                     else:
                         collection[ATTR_NEXT_COLLECTION_DATE] = (date_today() + timedelta(days=(WEEK_DAYS+collection_day_no)-current_day_no)).isoformat()
-
-                    if is_valid_date(collection[ATTR_NEXT_COLLECTION_DATE]):
-                        collection[ATTR_DUE_IN] = due_in_hours(parse(collection[ATTR_NEXT_COLLECTION_DATE]))
-                    else:
-                        collection[ATTR_DUE_IN] = -1
-                        
+        
                 else:
                     _LOGGER.error('Collection day dataset zero rows returned')
             else:            
@@ -259,16 +274,33 @@ class BneWasteCollection(object):
         weekStartString = f'{weekStartDate.day}/{weekStartDate:%m/%Y}'
 
         try:
-            _LOGGER.debug("...Week query: {0}{1}{2}{3}{4}{5}{6}".format(self._base_url,self._weeks_table,'&q={"WEEK_STARTING":"',weekStartString,'","ZONE":"',collection[ATTR_COLLECTION_ZONE], '"}'))
+            _LOGGER.info("...Week query: {0}{1}{2}{3}{4}{5}{6}".format(self._base_url,self._weeks_table,'&q={"WEEK_STARTING":"',weekStartString,'","ZONE":"',collection[ATTR_COLLECTION_ZONE], '"}'))
             response = requests.get(self._base_url + self._weeks_table + '&q={"WEEK_STARTING":"' + weekStartString + '","ZONE":"' + collection[ATTR_COLLECTION_ZONE] + '"}')
             json=response.json()
             if json['success'] == True:
+                _LOGGER.info("...Successfully retrieved collection week dataset")
                 dic=json['result']
                 df = pd.DataFrame(dic['records'])
-                if len(df.index) > 0:
+                collection[ATTR_RECYCLE_WEEK] = self._recycle_week
+                if self._recycle_week:
                     collection[ATTR_EXTRA_BIN] = 'Yellow/Recycling'
+                    if len(df.index) == 0:
+                        # If no row returned then next collection date is not recycling week so advance collection date one week
+                        collection[ATTR_NEXT_COLLECTION_DATE] = (parse(collection[ATTR_NEXT_COLLECTION_DATE]) + timedelta(days=WEEK_DAYS)).isoformat()
                 else:
-                    collection[ATTR_EXTRA_BIN] = 'Green/Garden'
+                    # "Normal" week
+                    if self._green_bin: 
+                        collection[ATTR_EXTRA_BIN] = 'Green/Garden'
+                    else:
+                        collection[ATTR_EXTRA_BIN] = ''
+                    if len(df.index) > 0:
+                        # If row returned then next collection date is recycling week so advance collection date one week
+                        collection[ATTR_NEXT_COLLECTION_DATE] = (parse(collection[ATTR_NEXT_COLLECTION_DATE]) + timedelta(days=WEEK_DAYS)).isoformat()
+
+                if is_valid_date(collection[ATTR_NEXT_COLLECTION_DATE]):
+                    collection[ATTR_DUE_IN] = due_in_hours(parse(collection[ATTR_NEXT_COLLECTION_DATE]))
+                else:
+                    collection[ATTR_DUE_IN] = -1                        
             else:
                 _LOGGER.error("Error retrieving collection weeks dataset")
         except requests.exceptions.RequestException as e:
