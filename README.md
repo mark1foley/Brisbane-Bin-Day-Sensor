@@ -74,7 +74,7 @@ Home assistant alerts that use notifications can be setup to monitor the state o
 
 ```yaml
   take_the_bin_out:
-    name: Take the bin out
+    name: Take the bin out (red only)
     entity_id: sensor.brisbane_bin_day
     state: "on"
     repeat: 1
@@ -87,7 +87,7 @@ Home assistant alerts that use notifications can be setup to monitor the state o
 
 ```yaml
   take_the_recycle_bin_out:
-    name: Take the bins out (+ yellow bin)
+    name: Take the bins out (red + yellow bin)
     entity_id: sensor.brisbane_bin_day_recycle
     state: "on"
     repeat: 60
