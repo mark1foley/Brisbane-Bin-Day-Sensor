@@ -35,6 +35,7 @@ CONF_WASTE_WEEKS_TABLE = 'weeks_table'
 CONF_PROPERTY_NUMBER = 'property_number'
 CONF_ICON = 'icon'
 CONF_RECYCLE_ICON = 'recycle_icon'
+
 CONF_ALERT_HOURS = 'alert_hours'
 CONF_GREEN_BIN = 'green_bin'
 
@@ -47,6 +48,7 @@ MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=300)
 
 WEEK_DAYS = 7
 DAY_HOURS = 24
+HOUR_SECONDS = 3600
 
 def is_valid_date(date):
     if date:
@@ -60,7 +62,8 @@ def is_valid_date(date):
 def due_in_hours(time_stamp: datetime):
     """Get the remaining hours from now until a given datetime object."""
     diff = time_stamp - datetime.now()
-    return math.ceil(diff.seconds/3660) + (diff.days*DAY_HOURS)
+    _LOGGER.debug("...Due In: Now: {0} Next Collection: {1} Seconds: {2}, Hours: {3}".format(datetime.now(), time_stamp, diff.seconds, math.ceil(diff.seconds/HOUR_SECONDS)))
+    return math.ceil(diff.seconds/HOUR_SECONDS) + (diff.days*DAY_HOURS)
 
 def date_today():
     return datetime.combine(date.today(), datetime.min.time())
@@ -132,7 +135,7 @@ class BneWasteCollectionSensor(Entity):
     def state(self):
         """Return the state of the sensor."""
         collection = self._get_collection_details()
-        
+        _LOGGER.debug("...State Update: Due In {0} Alert Hours: {1}".format(collection[ATTR_DUE_IN], self._alert_hours))
         return STATE_ON if 0 < collection[ATTR_DUE_IN] <= self._alert_hours else STATE_OFF
 
     @property
