@@ -279,7 +279,7 @@ class BneWasteCollection(object):
         # If the ZONE for the address does not match the ZONE for the week, it is green waste bin week.
         collection_day_no = strptime(collection[ATTR_COLLECTION_DAY],'%A').tm_wday
         weekStartDate = parse(collection[ATTR_NEXT_COLLECTION_DATE]) - timedelta(days=collection_day_no)
-        weekStartString = f'{weekStartDate.day}/{weekStartDate:%m/%Y}'
+        weekStartString = f'{weekStartDate:%Y-%m-%d}'
 
         try:
             full_url = self._base_url.format(**{
