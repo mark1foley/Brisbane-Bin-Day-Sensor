@@ -8,6 +8,7 @@ from dateutil.parser import parse
 from calendar import weekday
 from datetime import datetime, timedelta, date
 from time import strptime
+from urllib.parse import quote_plus
 
 from homeassistant.components.binary_sensor import PLATFORM_SCHEMA
 from homeassistant.const import (CONF_NAME, STATE_ON, STATE_OFF)
@@ -237,19 +238,25 @@ class BneWasteCollection(object):
         _LOGGER.info("Updating Waste Collection data")
         try:
             collection[ATTR_PROPERTY_NUMBER] = self._property_number
-            _LOGGER.info("...Day query: {0}{1}{2}{3}{4}".format(self._base_url,self._days_table,'&q={"PROPERTY_NUMBER":"',self._property_number, '"}'))
-            response = requests.get(self._base_url + self._days_table + '&q={"PROPERTY_NUMBER":"' + str(self._property_number) + '"}')
+            full_url = self._base_url.format(**{
+                'dataset_id': self._days_table,
+                'query': quote_plus("property_number = {0}".format(int(self._property_number)))
+            })
+            _LOGGER.info("...Day query: {0}".format(full_url))
+            response = requests.get(full_url)
             json=response.json()
-            if json['success'] == True:
+            if 'error_code' in json:
+                _LOGGER.error("Error retrieving collection day dataset: {0}: {1}".format(json['error_code'], json['message']))
+            else:
                 _LOGGER.info("...Successfully retrieved collection day dataset")
-                dic=json['result']
-                df = pd.DataFrame(dic['records'])
+                dic=json['results']
+                df = pd.DataFrame(dic)
                 if len(df.index) > 0:
-                    collection[ATTR_SUBURB] = df['SUBURB'].iloc[0]
-                    collection[ATTR_STREET] = df['STREET_NAME'].iloc[0]
-                    collection[ATTR_HOUSE_NUMBER] = df['HOUSE_NUMBER'].iloc[0]
-                    collection[ATTR_COLLECTION_DAY] = df['COLLECTION_DAY'].iloc[0]
-                    collection[ATTR_COLLECTION_ZONE] = df['ZONE'].iloc[0]
+                    collection[ATTR_SUBURB] = df['suburb'].iloc[0]
+                    collection[ATTR_STREET] = df['street_name'].iloc[0]
+                    collection[ATTR_HOUSE_NUMBER] = df['house_number'].iloc[0]
+                    collection[ATTR_COLLECTION_DAY] = df['collection_day'].iloc[0]
+                    collection[ATTR_COLLECTION_ZONE] = df['zone'].iloc[0]
 
                     collection_day_no = strptime(collection[ATTR_COLLECTION_DAY],'%A').tm_wday
                     current_day_no = datetime.today().weekday()
@@ -260,8 +267,6 @@ class BneWasteCollection(object):
         
                 else:
                     _LOGGER.error('Collection day dataset zero rows returned')
-            else:            
-                _LOGGER.error("Error retrieving collection day dataset")
         except requests.exceptions.RequestException as e:
                 _LOGGER.error("updating collection day got {}.".format(requests.exceptions.RequestException))
                 
@@ -274,16 +279,22 @@ class BneWasteCollection(object):
         # If the ZONE for the address does not match the ZONE for the week, it is green waste bin week.
         collection_day_no = strptime(collection[ATTR_COLLECTION_DAY],'%A').tm_wday
         weekStartDate = parse(collection[ATTR_NEXT_COLLECTION_DATE]) - timedelta(days=collection_day_no)
-        weekStartString = f'{weekStartDate.day}/{weekStartDate:%m/%Y}'
+        weekStartString = f'{weekStartDate:%Y-%m-%d}'
 
         try:
-            _LOGGER.info("...Week query: {0}{1}{2}{3}{4}{5}{6}".format(self._base_url,self._weeks_table,'&q={"WEEK_STARTING":"',weekStartString,'","ZONE":"',collection[ATTR_COLLECTION_ZONE], '"}'))
-            response = requests.get(self._base_url + self._weeks_table + '&q={"WEEK_STARTING":"' + weekStartString + '","ZONE":"' + collection[ATTR_COLLECTION_ZONE] + '"}')
+            full_url = self._base_url.format(**{
+                'dataset_id': self._weeks_table,
+                'query': quote_plus("week_starting = date'{0}' AND search(zone, '{1}')".format(str(weekStartString).replace("'", "\\'"), str(collection[ATTR_COLLECTION_ZONE]).replace("'", "\\'")))
+            })
+            _LOGGER.info("...Week query: {0}".format(full_url))
+            response = requests.get(full_url)
             json=response.json()
-            if json['success'] == True:
+            if 'error_code' in json:
+                _LOGGER.error("Error retrieving collection week dataset: {0}: {1}".format(json['error_code'], json['message']))
+            else:
                 _LOGGER.info("...Successfully retrieved collection week dataset")
-                dic=json['result']
-                df = pd.DataFrame(dic['records'])
+                dic=json['results']
+                df = pd.DataFrame(dic)
                 collection[ATTR_RECYCLE_WEEK] = self._recycle_week
                 if self._recycle_week:
                     collection[ATTR_EXTRA_BIN] = 'Yellow/Recycling'
@@ -304,8 +315,6 @@ class BneWasteCollection(object):
                     collection[ATTR_DUE_IN] = due_in_hours(parse(collection[ATTR_NEXT_COLLECTION_DATE]))
                 else:
                     collection[ATTR_DUE_IN] = -1                        
-            else:
-                _LOGGER.error("Error retrieving collection weeks dataset")
         except requests.exceptions.RequestException as e:
             _LOGGER.error("updating collection week got {}.".format(requests.exceptions.RequestException))
 

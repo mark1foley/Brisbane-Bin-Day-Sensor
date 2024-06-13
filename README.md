@@ -18,7 +18,7 @@ While most Councils provide details of their waste collection schedules via thei
 
 ## Configuration
 
-You will need to obtain your property number from the [Brisbane City Council Waster Collection Data Open Data Site](https://www.data.brisbane.qld.gov.au/data/dataset/waste-collection-days/resource/adcb0791-71f1-4b0e-bb6f-b375ac244896).  Search for your address and copy the value in the Property_Number column of the table.
+You will need to obtain your property number from the [Brisbane City Council Waste Collection Open Data Site](https://data.brisbane.qld.gov.au/explore/dataset/waste-collection-days-collection-days/table/).  Search for your address and copy the value in the Property_Number column of the table.
 
 Add the following to your `configuration.yaml` file:
 
@@ -28,9 +28,9 @@ sensor:
   - platform: bne_wc
     name: Brisbane Bin Day
     scan_interval: 300
-    base_url: https://www.data.brisbane.qld.gov.au/data/api/3/action/datastore_search?resource_id=
-    days_table: adcb0791-71f1-4b0e-bb6f-b375ac244896
-    weeks_table: c6dbb0b3-1e00-4bb8-8776-aa1b8f1ecfaa
+    base_url: https://www.data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets/{dataset_id}/records?where={query}&limit=1
+    days_table: waste-collection-days-collection-days
+    weeks_table: waste-collection-days-collection-weeks
     property_number: <value you copied above>
 ```
 
