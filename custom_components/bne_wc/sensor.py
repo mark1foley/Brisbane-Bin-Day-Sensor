@@ -240,7 +240,7 @@ class BneWasteCollection(object):
             collection[ATTR_PROPERTY_NUMBER] = self._property_number
             full_url = self._base_url.format(**{
                 'dataset_id': self._days_table,
-                'query': quote_plus("property_number = {0}".format(int(self._property_number)))
+                'query': quote_plus("property_id = {0}".format(int(self._property_number)))
             })
             _LOGGER.info("...Day query: {0}".format(full_url))
             response = requests.get(full_url)
