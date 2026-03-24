@@ -1,7 +1,6 @@
 import math
 import requests
 import logging
-import pandas as pd
 import voluptuous as vol
 
 from dateutil.parser import parse
@@ -25,6 +24,10 @@ ATTR_HOUSE_NUMBER = "House Number"
 ATTR_COLLECTION_DAY = "Collection Day"
 ATTR_COLLECTION_ZONE = "Collection Zone"
 ATTR_NEXT_COLLECTION_DATE = "Next Collection Date"
+ATTR_NEXT_KERBSIDE_COLLECTION_DATE = "Next Kerbside Collection Date"
+ATTR_NEXT_KERBSIDE_ON_FOOTPATH_DATE = "Next Kerbside On Footpath Date"
+ATTR_KERBSIDE_DUE_IN = "Kerbside Due In"
+ATTR_KERBSIDE_ALERT_HOURS = "Kerbside Alert Hours"
 ATTR_DUE_IN = "Due In"
 ATTR_ALERT_HOURS = "Alert Hours"
 ATTR_EXTRA_BIN = "Extra Bin"
@@ -33,16 +36,20 @@ ATTR_RECYCLE_WEEK = "Recycle Week"
 CONF_BASE_URL = 'base_url'
 CONF_WASTE_DAYS_TABLE = 'days_table'
 CONF_WASTE_WEEKS_TABLE = 'weeks_table'
+CONF_KERBSIDE_TABLE = "kerbside_table"
 CONF_PROPERTY_NUMBER = 'property_number'
 CONF_ICON = 'icon'
 CONF_RECYCLE_ICON = 'recycle_icon'
-
+CONF_KERBSIDE_ICON = "kerbside_icon"
 CONF_ALERT_HOURS = 'alert_hours'
-CONF_GREEN_BIN = 'green_bin'
+CONF_KERBSIDE_ALERT_HOURS = "kerbside_alert_hours"
+CONF_HAS_GREEN_BIN = 'green_bin'
 
 DEFAULT_ICON = 'mdi:trash-can'
 DEFAULT_RECYCLE_ICON = 'mdi:recycle'
+DEFAULT_KERBSIDE_ICON = "mdi:truck-alert"
 DEFAULT_ALERT_HOURS = 12
+DEFAULT_KERBSIDE_ALERT_HOURS = 168
 
 # Throttle updates to every 5 minutes 
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=300)
@@ -51,20 +58,25 @@ WEEK_DAYS = 7
 DAY_HOURS = 24
 HOUR_SECONDS = 3600
 
-def is_valid_date(date):
-    if date:
-        try:
-            parse(date)
-            return True
-        except:
-            return False
-    return False
+def is_valid_date(date_str):
+    """Validate if a date string can be parsed."""
+    if not date_str:
+        return False
+    try:
+        parse(date_str)
+        return True
+    except (ValueError, TypeError):
+        return False
 
-def due_in_hours(time_stamp: datetime):
+def due_in_hours(time_stamp: datetime, *, label: str | None = None):
     """Get the remaining hours from now until a given datetime object."""
-    diff = time_stamp - datetime.now()
-    _LOGGER.debug("...Due In: Now: {0} Next Collection: {1} Seconds: {2}, Hours: {3}".format(datetime.now(), time_stamp, diff.seconds, math.ceil(diff.seconds/HOUR_SECONDS)))
-    return math.ceil(diff.seconds/HOUR_SECONDS) + (diff.days*DAY_HOURS)
+    diff = time_stamp - datetime.now()    
+    total_seconds = diff.total_seconds()        
+    if total_seconds < 0:        
+        return 0  # Past due        
+    hours = math.ceil(total_seconds / HOUR_SECONDS)
+    _LOGGER.debug("...{0} Due In: Now: {1} Next Collection: {2} Seconds: {3}, Hours: {4}".format(label, datetime.now(), time_stamp, total_seconds, hours))
+    return hours
 
 def date_today():
     return datetime.combine(date.today(), datetime.min.time())
@@ -78,244 +90,364 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_WASTE_DAYS_TABLE): cv.string,
     vol.Required(CONF_WASTE_WEEKS_TABLE): cv.string,
     vol.Required(CONF_PROPERTY_NUMBER): cv.positive_int,
+    vol.Optional(CONF_KERBSIDE_TABLE): cv.string,
     vol.Optional(CONF_ALERT_HOURS, default=DEFAULT_ALERT_HOURS): cv.positive_int,
+    vol.Optional(CONF_KERBSIDE_ALERT_HOURS, default=DEFAULT_KERBSIDE_ALERT_HOURS): cv.positive_int,
     vol.Optional(CONF_ICON, default=DEFAULT_ICON): cv.string,
     vol.Optional(CONF_RECYCLE_ICON, default=DEFAULT_RECYCLE_ICON): cv.string,
-    vol.Optional(CONF_GREEN_BIN, default=False): cv.boolean
+    vol.Optional(CONF_KERBSIDE_ICON, default=DEFAULT_KERBSIDE_ICON): cv.string,
+
+    vol.Optional(CONF_HAS_GREEN_BIN, default=False): cv.boolean,
 })
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
-    """Get the waste collection sensor."""
-    
-    data_normal = BneWasteCollection(config.get(CONF_BASE_URL), config.get(CONF_WASTE_DAYS_TABLE), config.get(CONF_WASTE_WEEKS_TABLE), config.get(CONF_PROPERTY_NUMBER),config.get(CONF_GREEN_BIN),False)
-    data_recycle = BneWasteCollection(config.get(CONF_BASE_URL), config.get(CONF_WASTE_DAYS_TABLE), config.get(CONF_WASTE_WEEKS_TABLE), config.get(CONF_PROPERTY_NUMBER),config.get(CONF_GREEN_BIN),True)
-    recycleSensorName = config.get(CONF_NAME) + " (Recycle)"
+    shared_data = BneWasteCollectionData(
+        base_url=config[CONF_BASE_URL],
+        days_table=config[CONF_WASTE_DAYS_TABLE],
+        weeks_table=config[CONF_WASTE_WEEKS_TABLE],
+        kerbside_table=config.get(CONF_KERBSIDE_TABLE),  # optional
+        property_number=config[CONF_PROPERTY_NUMBER],
+        has_green_bin=config[CONF_HAS_GREEN_BIN],
+    )
 
-    sensors = []
+    sensors = [
+        BneWasteCollectionSensor(
+            shared_data=shared_data,
+            name=config[CONF_NAME],
+            icon=config[CONF_ICON],
+            alert_hours=config[CONF_ALERT_HOURS],
+            recycle_week=False,
+        ),
+        BneWasteCollectionSensor(
+            shared_data=shared_data,
+            name=f"{config[CONF_NAME]} (Recycle)",
+            icon=config[CONF_RECYCLE_ICON],
+            alert_hours=config[CONF_ALERT_HOURS],
+            recycle_week=True,
+        ),
+    ]
 
-    # Add normal week sensor
-    sensors.append(BneWasteCollectionSensor(
-        data_normal, 
-        config.get(CONF_NAME),
-        config.get(CONF_ICON),
-        config.get(CONF_ALERT_HOURS)
-    ))
-
-    # Add recycle week sensor
-    sensors.append(BneWasteCollectionSensor(
-        data_recycle, 
-        recycleSensorName,
-        config.get(CONF_RECYCLE_ICON),
-        config.get(CONF_ALERT_HOURS)
-    ))
+    if CONF_KERBSIDE_TABLE in config:
+        sensors.append(
+            BneWasteCollectionKerbsideSensor(
+                shared_data,
+                f"{config[CONF_NAME]} (Kerbside)",
+                config.get(CONF_KERBSIDE_ICON, DEFAULT_KERBSIDE_ICON),
+                config.get(CONF_KERBSIDE_ALERT_HOURS, DEFAULT_KERBSIDE_ALERT_HOURS),
+            )
+        )
+    else:
+        _LOGGER.info(
+            "Kerbside sensor not created: '%s' not configured",
+            CONF_KERBSIDE_TABLE,
+        )
 
     add_devices(sensors)
 
 class BneWasteCollectionSensor(Entity):
-    """Implementation of a waste collection sensor."""
-
-    def __init__(self, data, name, icon, alert_hours):
-        """Initialize the sensor."""
-        self.data = data
+    def __init__(self, shared_data, name, icon, alert_hours, recycle_week):
+        self.data = shared_data
         self._name = name
         self._icon = icon
         self._alert_hours = alert_hours
-        self.update()
-
-    def _get_collection_details(self):
-        collection_details = {}
-        for key, value in self.data.info.items():
-            collection_details[key] = value
-        return collection_details
+        self._recycle_week = recycle_week
+        self._attrs = {}
 
     @property
     def name(self):
         return self._name
 
     @property
+    def icon(self):
+        return self._icon
+
+    @property
     def state(self):
-        """Return the state of the sensor."""
-        collection = self._get_collection_details()
-        _LOGGER.debug("...State Update: Due In {0} Alert Hours: {1}".format(collection[ATTR_DUE_IN], self._alert_hours))
-        return STATE_ON if 0 < collection[ATTR_DUE_IN] <= self._alert_hours else STATE_OFF
+        due = self._attrs.get(ATTR_DUE_IN, -1)
+        return STATE_ON if 0 < due <= self._alert_hours else STATE_OFF
 
     @property
     def extra_state_attributes(self):
-        """Return the state attributes."""
-        collection_details = self._get_collection_details()
         attrs = {
             ATTR_ALERT_HOURS: self._alert_hours,
-            ATTR_PROPERTY_NUMBER: collection_details[ATTR_PROPERTY_NUMBER],
-            ATTR_SUBURB: collection_details[ATTR_SUBURB],
-            ATTR_STREET: collection_details[ATTR_STREET],
-            ATTR_HOUSE_NUMBER: collection_details[ATTR_HOUSE_NUMBER],
-            ATTR_COLLECTION_DAY: collection_details[ATTR_COLLECTION_DAY],
-            ATTR_COLLECTION_ZONE: collection_details[ATTR_COLLECTION_ZONE],
-            ATTR_NEXT_COLLECTION_DATE: collection_details[ATTR_NEXT_COLLECTION_DATE],
-            ATTR_EXTRA_BIN: collection_details[ATTR_EXTRA_BIN],
-            ATTR_DUE_IN: collection_details[ATTR_DUE_IN],
-            ATTR_RECYCLE_WEEK: collection_details[ATTR_RECYCLE_WEEK]
+            ATTR_PROPERTY_NUMBER: self._attrs.get(ATTR_PROPERTY_NUMBER),
+            ATTR_SUBURB: self._attrs.get(ATTR_SUBURB),
+            ATTR_STREET: self._attrs.get(ATTR_STREET),
+            ATTR_HOUSE_NUMBER: self._attrs.get(ATTR_HOUSE_NUMBER),
+            ATTR_COLLECTION_DAY: self._attrs.get(ATTR_COLLECTION_DAY),
+            ATTR_COLLECTION_ZONE: self._attrs.get(ATTR_COLLECTION_ZONE),
+            ATTR_NEXT_COLLECTION_DATE: self._attrs.get(ATTR_NEXT_COLLECTION_DATE),
+            ATTR_EXTRA_BIN: self._attrs.get(ATTR_EXTRA_BIN),
+            ATTR_DUE_IN: self._attrs.get(ATTR_DUE_IN),
+            ATTR_RECYCLE_WEEK: self._attrs.get(ATTR_RECYCLE_WEEK)
         }
 
         return attrs
+
+    def update(self):
+        self.data.update()
+        base = dict(self.data.data)
+
+        if ATTR_NEXT_COLLECTION_DATE not in base:
+            _LOGGER.warning("%s: skipping update, no data available (API may have failed)", self._name)
+            return
+
+        week_rows = base.pop("_week_rows", [])
+
+        base[ATTR_RECYCLE_WEEK] = self._recycle_week
+
+        if self._recycle_week:
+            # Recycling sensor represents recycling weeks
+            base[ATTR_EXTRA_BIN] = "Yellow/Recycling"
+            if not week_rows:
+                # Not a recycling week → advance to next week
+                base[ATTR_NEXT_COLLECTION_DATE] = (
+                    parse(base[ATTR_NEXT_COLLECTION_DATE]) + timedelta(days=7)
+                ).isoformat()
+        else:
+            # Normal bin sensor represents non-recycling weeks
+            if week_rows:
+                # This week is recycling → advance
+                base[ATTR_NEXT_COLLECTION_DATE] = (
+                    parse(base[ATTR_NEXT_COLLECTION_DATE]) + timedelta(days=7)
+                ).isoformat()
+
+            base[ATTR_EXTRA_BIN] = (
+                "Green/Garden" if self.data._has_green_bin else ""
+            )
+
+        base[ATTR_DUE_IN] = due_in_hours(
+            parse(base[ATTR_NEXT_COLLECTION_DATE]),
+            label=self._name,
+        )
+        self._attrs = base
+
+class BneWasteCollectionKerbsideSensor(Entity):
+    def __init__(self, shared_data, name, icon, alert_hours):
+        self.data = shared_data
+        self._name = name
+        self._icon = icon
+        self._alert_hours = alert_hours
+        self._attrs = {}
+
+    @property
+    def name(self):
+        return self._name
 
     @property
     def icon(self):
         return self._icon
 
+    @property
+    def state(self):
+        due = self._attrs.get(ATTR_KERBSIDE_DUE_IN, -1)
+        return STATE_ON if 0 < due <= self._alert_hours else STATE_OFF
+
+    @property
+    def extra_state_attributes(self):
+        return self._attrs
+
     def update(self):
-        """Get the latest data from opendata.ch and update the states."""
         self.data.update()
-        _LOGGER.debug("Sensor Update:")
-        _LOGGER.debug("...Name: {0}".format(self._name))
-        try:
-            _LOGGER.debug("...{0}: {1}".format(ATTR_PROPERTY_NUMBER,self.extra_state_attributes[ATTR_PROPERTY_NUMBER]))
-        except:
-            _LOGGER.debug("...{0} not defined".format(ATTR_PROPERTY_NUMBER))
-        try:
-            _LOGGER.debug("...{0}: {1}".format(ATTR_SUBURB,self.extra_state_attributes[ATTR_SUBURB]))
-        except:
-            _LOGGER.debug("...{0} not defined".format(ATTR_SUBURB))
-        try:
-            _LOGGER.debug("...{0}: {1}".format(ATTR_STREET,self.extra_state_attributes[ATTR_STREET]))
-        except:
-            _LOGGER.debug("...{0} not defined".format(ATTR_STREET))
-        try:
-            _LOGGER.debug("...{0}: {1}".format(ATTR_HOUSE_NUMBER,self.extra_state_attributes[ATTR_HOUSE_NUMBER]))
-        except:
-            _LOGGER.debug("...{0} not defined".format(ATTR_HOUSE_NUMBER))
-        try:
-            _LOGGER.debug("...{0}: {1}".format(ATTR_COLLECTION_DAY,self.extra_state_attributes[ATTR_COLLECTION_DAY]))
-        except:
-            _LOGGER.debug("...{0} not defined".format(ATTR_COLLECTION_DAY))
-        try:
-            _LOGGER.debug("...{0}: {1}".format(ATTR_COLLECTION_ZONE,self.extra_state_attributes[ATTR_COLLECTION_ZONE]))
-        except:
-            _LOGGER.debug("...{0} not defined".format(ATTR_COLLECTION_ZONE))
-        try:
-            _LOGGER.debug("...{0}: {1}".format(ATTR_NEXT_COLLECTION_DATE,self.extra_state_attributes[ATTR_NEXT_COLLECTION_DATE]))
-        except:
-            _LOGGER.debug("...{0} not defined".format(ATTR_NEXT_COLLECTION_DATE))
-        try:
-            _LOGGER.debug("...{0}: {1}".format(ATTR_EXTRA_BIN,self.extra_state_attributes[ATTR_EXTRA_BIN]))
-        except:
-            _LOGGER.debug("...{0} not defined".format(ATTR_EXTRA_BIN))
-        try:
-            _LOGGER.debug("...{0}: {1}".format(ATTR_ALERT_HOURS,self.extra_state_attributes[ATTR_ALERT_HOURS]))
-        except:
-            _LOGGER.debug("...{0} not defined".format(ATTR_ALERT_HOURS))
-        try:
-            _LOGGER.debug("...{0}: {1}".format(ATTR_DUE_IN,self.extra_state_attributes[ATTR_DUE_IN]))
-        except:
-            _LOGGER.debug("...{0} not defined".format(ATTR_DUE_IN))
-        try:
-            _LOGGER.debug("...{0}: {1}".format(ATTR_RECYCLE_WEEK,self.extra_state_attributes[ATTR_RECYCLE_WEEK]))
-        except:
-            _LOGGER.debug("...{0} not defined".format(ATTR_RECYCLE_WEEK))
+        base = dict(self.data.data)
 
-class BneWasteCollection(object):
-    """The Class for handling the data retrieval."""
+        if ATTR_NEXT_KERBSIDE_ON_FOOTPATH_DATE not in base or ATTR_NEXT_KERBSIDE_COLLECTION_DATE not in base:
+            _LOGGER.warning("Kerbside data unavailable (missing suburb or no API results)")
+            self._attrs = {}
+            return
 
-    def __init__(self, base_url, days_table, weeks_table, property_number, green_bin, recycle_week):
-        """Initialize the info object."""
+        self._attrs = {
+            ATTR_NEXT_KERBSIDE_COLLECTION_DATE: parse(base[ATTR_NEXT_KERBSIDE_COLLECTION_DATE]),
+            ATTR_NEXT_KERBSIDE_ON_FOOTPATH_DATE: parse(base[ATTR_NEXT_KERBSIDE_ON_FOOTPATH_DATE]),
+            ATTR_KERBSIDE_DUE_IN: due_in_hours(
+                parse(base[ATTR_NEXT_KERBSIDE_ON_FOOTPATH_DATE]),
+                label=self._name,
+            ),
+            ATTR_KERBSIDE_ALERT_HOURS: self._alert_hours,
+        }
+
+class BneWasteCollectionData:
+    """Fetches and caches all BNE waste + kerbside data."""
+
+    _DAY_CACHE = {}       # property_number -> (fetched_at, data)
+    _WEEK_CACHE = {}      # (zone, week_start) -> (fetched_at, rows)
+    _KERBSIDE_CACHE = {}  # suburb -> (fetched_at, data)
+
+    def __init__(
+        self,
+        base_url,
+        days_table,
+        weeks_table,
+        kerbside_table,
+        property_number,
+        has_green_bin,
+    ):
         self._base_url = base_url
         self._days_table = days_table
         self._weeks_table = weeks_table
+        self._kerbside_table = kerbside_table
         self._property_number = property_number
-        self._green_bin = green_bin
-        self._recycle_week = recycle_week
-        self.info = {}
-        
+        self._has_green_bin = has_green_bin
+        self.data = {}
+
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     def update(self):
-
-        collection = self._get_collection_details() if self._property_number else {}
-        self._get_extra_bin(collection)
-
-    def _get_collection_details(self):
-
-        collection = {}
-        _LOGGER.info("Updating Waste Collection data")
         try:
-            collection[ATTR_PROPERTY_NUMBER] = self._property_number
-            full_url = self._base_url.format(**{
-                'dataset_id': self._days_table,
-                'query': quote_plus("property_number = {0}".format(int(self._property_number)))
-            })
-            _LOGGER.info("...Day query: {0}".format(full_url))
-            response = requests.get(full_url)
-            json=response.json()
-            if 'error_code' in json:
-                _LOGGER.error("Error retrieving collection day dataset: {0}: {1}".format(json['error_code'], json['message']))
-            else:
-                _LOGGER.info("...Successfully retrieved collection day dataset")
-                dic=json['results']
-                df = pd.DataFrame(dic)
-                if len(df.index) > 0:
-                    collection[ATTR_SUBURB] = df['suburb'].iloc[0]
-                    collection[ATTR_STREET] = df['street_name'].iloc[0]
-                    collection[ATTR_HOUSE_NUMBER] = df['house_number'].iloc[0]
-                    collection[ATTR_COLLECTION_DAY] = df['collection_day'].iloc[0]
-                    collection[ATTR_COLLECTION_ZONE] = df['zone'].iloc[0]
+            self.data = self._get_collection_day()
+            self.data["_week_rows"] = self._get_collection_week(self.data)
 
-                    collection_day_no = strptime(collection[ATTR_COLLECTION_DAY],'%A').tm_wday
-                    current_day_no = datetime.today().weekday()
-                    if collection_day_no > current_day_no:
-                        collection[ATTR_NEXT_COLLECTION_DATE] = (date_today() + timedelta(days=collection_day_no-current_day_no)).isoformat()
-                    else:
-                        collection[ATTR_NEXT_COLLECTION_DATE] = (date_today() + timedelta(days=(WEEK_DAYS+collection_day_no)-current_day_no)).isoformat()
-        
-                else:
-                    _LOGGER.error('Collection day dataset zero rows returned')
-        except requests.exceptions.RequestException as e:
-                _LOGGER.error("updating collection day got {}.".format(requests.exceptions.RequestException))
-                
-        return collection
+            if self._kerbside_table:
+                self.data.update(self._get_kerbside(self.data))
+        except (requests.RequestException, ValueError) as err:
+            _LOGGER.error("BneWasteCollection update failed, will retry next cycle: %s", err)
 
-    def _get_extra_bin(self, collection):
-        # Waste Collection Algorithm 
-        # Explanation:
-        # If the ZONE for the address matches the ZONE for the week, it is yellow recycling bin week.
-        # If the ZONE for the address does not match the ZONE for the week, it is green waste bin week.
-        collection_day_no = strptime(collection[ATTR_COLLECTION_DAY],'%A').tm_wday
-        weekStartDate = parse(collection[ATTR_NEXT_COLLECTION_DATE]) - timedelta(days=collection_day_no)
-        weekStartString = f'{weekStartDate:%Y-%m-%d}'
+    def _is_cache_valid(self, cached_dt):
+        return cached_dt and (datetime.now() - cached_dt) < timedelta(hours=1)
 
+    def _get_collection_day(self):
+        cache = self._DAY_CACHE.get(self._property_number)
+        now = datetime.now()
+
+        if cache and self._is_cache_valid(cache[0]):
+            _LOGGER.debug("Using cached collection day data")
+            return dict(cache[1])
+
+        full_url = self._base_url.format(**{
+            "dataset_id": self._days_table,
+            # NOTE: API expects property_id (inconsistent with dataset)
+            "query": quote_plus(f"property_id = {int(self._property_number)}"),
+        })
+
+        _LOGGER.debug("Collection day cache empty or expired.  Fetching data using API: %s", full_url)
+        rows = self._execute_query(
+            full_url,
+            context="Collection day",
+        )
+
+        if not rows:
+            raise ValueError(
+                f"Collection day API returned no results for property "
+                f"{self._property_number}. Please check that the property "
+                f"number is correct."
+            )
+
+        row = rows[0]
+        collection_day_no = strptime(row["collection_day"], "%A").tm_wday
+        today_no = datetime.today().weekday()
+
+        if collection_day_no > today_no:
+            next_date = date_today() + timedelta(days=collection_day_no - today_no)
+        else:
+            next_date = date_today() + timedelta(days=7 + collection_day_no - today_no)
+
+        data = {
+            ATTR_PROPERTY_NUMBER: self._property_number,
+            ATTR_SUBURB: row["suburb"],
+            ATTR_STREET: row["street_name"],
+            ATTR_HOUSE_NUMBER: row["house_number"],
+            ATTR_COLLECTION_DAY: row["collection_day"],
+            ATTR_COLLECTION_ZONE: row["zone"],
+            ATTR_NEXT_COLLECTION_DATE: next_date.isoformat(),
+        }
+
+        self._DAY_CACHE[self._property_number] = (now, data)
+        return dict(data)
+
+    def _get_collection_week(self, base):
+        collection_day_no = strptime(
+            base[ATTR_COLLECTION_DAY], "%A"
+        ).tm_wday
+        week_start = (
+            parse(base[ATTR_NEXT_COLLECTION_DATE]) -
+            timedelta(days=collection_day_no)
+        ).date()
+
+        key = (base[ATTR_COLLECTION_ZONE], week_start)
+        now = datetime.now()
+
+        cache = self._WEEK_CACHE.get(key)
+        if cache and self._is_cache_valid(cache[0]):
+            _LOGGER.debug("Using cached collection week data")
+            return cache[1]
+
+        full_url = self._base_url.format(**{
+            "dataset_id": self._weeks_table,
+            "query": quote_plus(
+                f"week_starting = date'{week_start:%Y-%m-%d}' "
+                f"AND search(zone, '{base[ATTR_COLLECTION_ZONE]}')"
+            ),
+        })
+
+        _LOGGER.debug("Collection week cache empty or expired.  Fetching data using API: %s", full_url)
+        rows = self._execute_query(
+            full_url,
+            context="Collection week",
+        )
+        # An empty result is valid — it means this is not a recycling week
+        self._WEEK_CACHE[key] = (now, rows)
+        return rows
+
+    def _get_kerbside(self, base):
+        suburb = base.get(ATTR_SUBURB)
+        ### Extra debug for testing - remove later
+        _LOGGER.debug("_get_kerbside called, suburb=%s, table=%s", suburb, self._kerbside_table)
+        ###
+        if not suburb:
+            return {}
+
+        key = suburb.upper()
+        now = datetime.now()
+
+        cache = self._KERBSIDE_CACHE.get(key)
+        if cache and self._is_cache_valid(cache[0]):
+            _LOGGER.debug("Using cached kerbside data")
+            return dict(cache[1])
+
+        full_url = self._base_url.format(**{
+            "dataset_id": self._kerbside_table,
+            "query": quote_plus(f"suburb like '{suburb}'"),
+        })
+
+        _LOGGER.debug("Kerbside cache empty or expired.  Fetching data using API: %s", full_url)
+        rows = self._execute_query(
+            full_url,
+            context="Kerbside collection",
+        )
+        row = rows[0]
+        data = {
+            ATTR_NEXT_KERBSIDE_COLLECTION_DATE: parse(
+                row["date_of_collection"]
+            ).isoformat(),
+            ATTR_NEXT_KERBSIDE_ON_FOOTPATH_DATE: parse(
+                row["items_out_on_footpath"]
+            ).isoformat(),
+        }
+
+        self._KERBSIDE_CACHE[key] = (now, data)
+        return dict(data)
+
+    def _execute_query(self, full_url, *, context):
         try:
-            full_url = self._base_url.format(**{
-                'dataset_id': self._weeks_table,
-                'query': quote_plus("week_starting = date'{0}' AND search(zone, '{1}')".format(str(weekStartString).replace("'", "\\'"), str(collection[ATTR_COLLECTION_ZONE]).replace("'", "\\'")))
-            })
-            _LOGGER.info("...Week query: {0}".format(full_url))
-            response = requests.get(full_url)
-            json=response.json()
-            if 'error_code' in json:
-                _LOGGER.error("Error retrieving collection week dataset: {0}: {1}".format(json['error_code'], json['message']))
-            else:
-                _LOGGER.info("...Successfully retrieved collection week dataset")
-                dic=json['results']
-                df = pd.DataFrame(dic)
-                collection[ATTR_RECYCLE_WEEK] = self._recycle_week
-                if self._recycle_week:
-                    collection[ATTR_EXTRA_BIN] = 'Yellow/Recycling'
-                    if len(df.index) == 0:
-                        # If no row returned then next collection date is not recycling week so advance collection date one week
-                        collection[ATTR_NEXT_COLLECTION_DATE] = (parse(collection[ATTR_NEXT_COLLECTION_DATE]) + timedelta(days=WEEK_DAYS)).isoformat()
-                else:
-                    # "Normal" week
-                    if self._green_bin: 
-                        collection[ATTR_EXTRA_BIN] = 'Green/Garden'
-                    else:
-                        collection[ATTR_EXTRA_BIN] = ''
-                    if len(df.index) > 0:
-                        # If row returned then next collection date is recycling week so advance collection date one week
-                        collection[ATTR_NEXT_COLLECTION_DATE] = (parse(collection[ATTR_NEXT_COLLECTION_DATE]) + timedelta(days=WEEK_DAYS)).isoformat()
+            response = requests.get(full_url, timeout=10)
+            response.raise_for_status()
+            payload = response.json()
+        except requests.RequestException as err:
+            _LOGGER.error("%s API request failed: %s", context, err)
+            raise
+        except ValueError as err:
+            _LOGGER.error("%s API returned invalid JSON: %s", context, err)
+            raise
 
-                if is_valid_date(collection[ATTR_NEXT_COLLECTION_DATE]):
-                    collection[ATTR_DUE_IN] = due_in_hours(parse(collection[ATTR_NEXT_COLLECTION_DATE]))
-                else:
-                    collection[ATTR_DUE_IN] = -1                        
-        except requests.exceptions.RequestException as e:
-            _LOGGER.error("updating collection week got {}.".format(requests.exceptions.RequestException))
+        results = payload.get("results", [])
 
-        self.info = collection
+        # Handle logical API error embedded in row
+        if results:
+            first_row = results[0]
+            if isinstance(first_row, dict) and "error_code" in first_row:
+                raise ValueError(
+                    f"{context} API error "
+                    f"{first_row.get('error_code')}: "
+                    f"{first_row.get('error_message')}"
+                )
+
+        return results

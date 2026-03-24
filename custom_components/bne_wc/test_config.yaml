@@ -1,0 +1,12 @@
+name: 'Brisbane Bin Day'
+base_url: 'https://www.data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets/{dataset_id}/records?where={query}&limit=1'
+days_table: 'waste-collection-days-collection-days'
+weeks_table: 'waste-collection-days-collection-weeks'
+kerbside_table: 'kerbside-large-item-collection-schedule'
+property_number: '1132951'
+alert_hours: 12
+kerbside_alert_hours: 168
+icon: 'mdi:trash-can'
+recycle_icon: 'mdi:recycle'
+kerbside_icon: 'mdi:sofa'
+green_bin: false
