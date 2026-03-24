@@ -292,94 +292,162 @@ class BneWasteCollectionData:
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     def update(self):
-
-        collection = self._get_collection_details() if self._property_number else {}
-        self._get_extra_bin(collection)
-
-    def _get_collection_details(self):
-
-        collection = {}
-        _LOGGER.info("Updating Waste Collection data")
         try:
-            collection[ATTR_PROPERTY_NUMBER] = self._property_number
-            full_url = self._base_url.format(**{
-                'dataset_id': self._days_table,
-                'query': quote_plus("property_id = {0}".format(int(self._property_number)))
-            })
-            _LOGGER.info("...Day query: {0}".format(full_url))
-            response = requests.get(full_url)
-            json=response.json()
-            if 'error_code' in json:
-                _LOGGER.error("Error retrieving collection day dataset: {0}: {1}".format(json['error_code'], json['message']))
-            else:
-                _LOGGER.info("...Successfully retrieved collection day dataset")
-                dic=json['results']
-                df = pd.DataFrame(dic)
-                if len(df.index) > 0:
-                    collection[ATTR_SUBURB] = df['suburb'].iloc[0]
-                    collection[ATTR_STREET] = df['street_name'].iloc[0]
-                    collection[ATTR_HOUSE_NUMBER] = df['house_number'].iloc[0]
-                    collection[ATTR_COLLECTION_DAY] = df['collection_day'].iloc[0]
-                    collection[ATTR_COLLECTION_ZONE] = df['zone'].iloc[0]
+            self.data = self._get_collection_day()
+            self.data["_week_rows"] = self._get_collection_week(self.data)
 
-                    collection_day_no = strptime(collection[ATTR_COLLECTION_DAY],'%A').tm_wday
-                    current_day_no = datetime.today().weekday()
-                    if collection_day_no > current_day_no:
-                        collection[ATTR_NEXT_COLLECTION_DATE] = (date_today() + timedelta(days=collection_day_no-current_day_no)).isoformat()
-                    else:
-                        collection[ATTR_NEXT_COLLECTION_DATE] = (date_today() + timedelta(days=(WEEK_DAYS+collection_day_no)-current_day_no)).isoformat()
-        
-                else:
-                    _LOGGER.error('Collection day dataset zero rows returned')
-        except requests.exceptions.RequestException as e:
-                _LOGGER.error("updating collection day got {}.".format(requests.exceptions.RequestException))
-                
-        return collection
+            if self._kerbside_table:
+                self.data.update(self._get_kerbside(self.data))
+        except (requests.RequestException, ValueError) as err:
+            _LOGGER.error("BneWasteCollection update failed, will retry next cycle: %s", err)
 
-    def _get_extra_bin(self, collection):
-        # Waste Collection Algorithm 
-        # Explanation:
-        # If the ZONE for the address matches the ZONE for the week, it is yellow recycling bin week.
-        # If the ZONE for the address does not match the ZONE for the week, it is green waste bin week.
-        collection_day_no = strptime(collection[ATTR_COLLECTION_DAY],'%A').tm_wday
-        weekStartDate = parse(collection[ATTR_NEXT_COLLECTION_DATE]) - timedelta(days=collection_day_no)
-        weekStartString = f'{weekStartDate:%Y-%m-%d}'
+    def _is_cache_valid(self, cached_dt):
+        return cached_dt and (datetime.now() - cached_dt) < timedelta(hours=1)
 
+    def _get_collection_day(self):
+        cache = self._DAY_CACHE.get(self._property_number)
+        now = datetime.now()
+
+        if cache and self._is_cache_valid(cache[0]):
+            _LOGGER.debug("Using cached collection day data")
+            return dict(cache[1])
+
+        full_url = self._base_url.format(**{
+            "dataset_id": self._days_table,
+            # NOTE: API expects property_id (inconsistent with dataset)
+            "query": quote_plus(f"property_id = {int(self._property_number)}"),
+        })
+
+        _LOGGER.debug("Collection day cache empty or expired.  Fetching data using API: %s", full_url)
+        rows = self._execute_query(
+            full_url,
+            context="Collection day",
+        )
+
+        if not rows:
+            raise ValueError(
+                f"Collection day API returned no results for property "
+                f"{self._property_number}. Please check that the property "
+                f"number is correct."
+            )
+
+        row = rows[0]
+        collection_day_no = strptime(row["collection_day"], "%A").tm_wday
+        today_no = datetime.today().weekday()
+
+        if collection_day_no > today_no:
+            next_date = date_today() + timedelta(days=collection_day_no - today_no)
+        else:
+            next_date = date_today() + timedelta(days=7 + collection_day_no - today_no)
+
+        data = {
+            ATTR_PROPERTY_NUMBER: self._property_number,
+            ATTR_SUBURB: row["suburb"],
+            ATTR_STREET: row["street_name"],
+            ATTR_HOUSE_NUMBER: row["house_number"],
+            ATTR_COLLECTION_DAY: row["collection_day"],
+            ATTR_COLLECTION_ZONE: row["zone"],
+            ATTR_NEXT_COLLECTION_DATE: next_date.isoformat(),
+        }
+
+        self._DAY_CACHE[self._property_number] = (now, data)
+        return dict(data)
+
+    def _get_collection_week(self, base):
+        collection_day_no = strptime(
+            base[ATTR_COLLECTION_DAY], "%A"
+        ).tm_wday
+        week_start = (
+            parse(base[ATTR_NEXT_COLLECTION_DATE]) -
+            timedelta(days=collection_day_no)
+        ).date()
+
+        key = (base[ATTR_COLLECTION_ZONE], week_start)
+        now = datetime.now()
+
+        cache = self._WEEK_CACHE.get(key)
+        if cache and self._is_cache_valid(cache[0]):
+            _LOGGER.debug("Using cached collection week data")
+            return cache[1]
+
+        full_url = self._base_url.format(**{
+            "dataset_id": self._weeks_table,
+            "query": quote_plus(
+                f"week_starting = date'{week_start:%Y-%m-%d}' "
+                f"AND search(zone, '{base[ATTR_COLLECTION_ZONE]}')"
+            ),
+        })
+
+        _LOGGER.debug("Collection week cache empty or expired.  Fetching data using API: %s", full_url)
+        rows = self._execute_query(
+            full_url,
+            context="Collection week",
+        )
+        # An empty result is valid — it means this is not a recycling week
+        self._WEEK_CACHE[key] = (now, rows)
+        return rows
+
+    def _get_kerbside(self, base):
+        suburb = base.get(ATTR_SUBURB)
+        ### Extra debug for testing - remove later
+        _LOGGER.debug("_get_kerbside called, suburb=%s, table=%s", suburb, self._kerbside_table)
+        ###
+        if not suburb:
+            return {}
+
+        key = suburb.upper()
+        now = datetime.now()
+
+        cache = self._KERBSIDE_CACHE.get(key)
+        if cache and self._is_cache_valid(cache[0]):
+            _LOGGER.debug("Using cached kerbside data")
+            return dict(cache[1])
+
+        full_url = self._base_url.format(**{
+            "dataset_id": self._kerbside_table,
+            "query": quote_plus(f"suburb like '{suburb}'"),
+        })
+
+        _LOGGER.debug("Kerbside cache empty or expired.  Fetching data using API: %s", full_url)
+        rows = self._execute_query(
+            full_url,
+            context="Kerbside collection",
+        )
+        row = rows[0]
+        data = {
+            ATTR_NEXT_KERBSIDE_COLLECTION_DATE: parse(
+                row["date_of_collection"]
+            ).isoformat(),
+            ATTR_NEXT_KERBSIDE_ON_FOOTPATH_DATE: parse(
+                row["items_out_on_footpath"]
+            ).isoformat(),
+        }
+
+        self._KERBSIDE_CACHE[key] = (now, data)
+        return dict(data)
+
+    def _execute_query(self, full_url, *, context):
         try:
-            full_url = self._base_url.format(**{
-                'dataset_id': self._weeks_table,
-                'query': quote_plus("week_starting = date'{0}' AND search(zone, '{1}')".format(str(weekStartString).replace("'", "\\'"), str(collection[ATTR_COLLECTION_ZONE]).replace("'", "\\'")))
-            })
-            _LOGGER.info("...Week query: {0}".format(full_url))
-            response = requests.get(full_url)
-            json=response.json()
-            if 'error_code' in json:
-                _LOGGER.error("Error retrieving collection week dataset: {0}: {1}".format(json['error_code'], json['message']))
-            else:
-                _LOGGER.info("...Successfully retrieved collection week dataset")
-                dic=json['results']
-                df = pd.DataFrame(dic)
-                collection[ATTR_RECYCLE_WEEK] = self._recycle_week
-                if self._recycle_week:
-                    collection[ATTR_EXTRA_BIN] = 'Yellow/Recycling'
-                    if len(df.index) == 0:
-                        # If no row returned then next collection date is not recycling week so advance collection date one week
-                        collection[ATTR_NEXT_COLLECTION_DATE] = (parse(collection[ATTR_NEXT_COLLECTION_DATE]) + timedelta(days=WEEK_DAYS)).isoformat()
-                else:
-                    # "Normal" week
-                    if self._green_bin: 
-                        collection[ATTR_EXTRA_BIN] = 'Green/Garden'
-                    else:
-                        collection[ATTR_EXTRA_BIN] = ''
-                    if len(df.index) > 0:
-                        # If row returned then next collection date is recycling week so advance collection date one week
-                        collection[ATTR_NEXT_COLLECTION_DATE] = (parse(collection[ATTR_NEXT_COLLECTION_DATE]) + timedelta(days=WEEK_DAYS)).isoformat()
+            response = requests.get(full_url, timeout=10)
+            response.raise_for_status()
+            payload = response.json()
+        except requests.RequestException as err:
+            _LOGGER.error("%s API request failed: %s", context, err)
+            raise
+        except ValueError as err:
+            _LOGGER.error("%s API returned invalid JSON: %s", context, err)
+            raise
 
-                if is_valid_date(collection[ATTR_NEXT_COLLECTION_DATE]):
-                    collection[ATTR_DUE_IN] = due_in_hours(parse(collection[ATTR_NEXT_COLLECTION_DATE]))
-                else:
-                    collection[ATTR_DUE_IN] = -1                        
-        except requests.exceptions.RequestException as e:
-            _LOGGER.error("updating collection week got {}.".format(requests.exceptions.RequestException))
+        results = payload.get("results", [])
 
-        self.info = collection
+        # Handle logical API error embedded in row
+        if results:
+            first_row = results[0]
+            if isinstance(first_row, dict) and "error_code" in first_row:
+                raise ValueError(
+                    f"{context} API error "
+                    f"{first_row.get('error_code')}: "
+                    f"{first_row.get('error_message')}"
+                )
+
+        return results
