@@ -389,9 +389,6 @@ class BneWasteCollectionData:
 
     def _get_kerbside(self, base):
         suburb = base.get(ATTR_SUBURB)
-        ### Extra debug for testing - remove later
-        _LOGGER.debug("_get_kerbside called, suburb=%s, table=%s", suburb, self._kerbside_table)
-        ###
         if not suburb:
             return {}
 
