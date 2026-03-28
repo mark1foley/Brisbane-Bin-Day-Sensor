@@ -2,6 +2,8 @@
 
 This project creates two new Home Assistant binary sensors that provide details of bin collections in the Brisbane City Council area.  One sensor is for the "normal" (or optionally green bin) week while the other is for the recycle (yellow bin) week.  Two sensors are used to enable the creation of alerts in Home Assistant with names specific to the weeks.
 
+If desired, a third optional sensor can be created for the annual kerdside collections which can also be used for alerts.
+
 While most Councils provide details of their waste collection schedules via their Open Data portals there is no consistency or standards in how the data is structured (especially when it comes to the recycle week determination).  Therefore, it is not possible to create a generic sensor but you are welcome to fork this code and cusrtomize it for your particular Council. 
 
 ## Installation (HACS) - Recommended
@@ -31,6 +33,7 @@ sensor:
     base_url: https://www.data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets/{dataset_id}/records?where={query}&limit=1
     days_table: waste-collection-days-collection-days
     weeks_table: waste-collection-days-collection-weeks
+    kerbside_table: kerbside-large-item-collection-schedule
     property_number: <value you copied above>
 ```
 
@@ -41,11 +44,14 @@ Configuration variables:
 - **base_url** (*Required*): URL for the brisbane City Council Open Data website
 - **days_table** (*Required*): Name of the open data table that contain details of collection days for each property
 - **weeks_table** (*Required*): Name of the open data table that contain details which additional bins are collected each week
+- **kerbside_table** (*Optional*): Name of the open data table that contains details of the annual kerbside collections
 - **property_number** (*Required*): Unique property number to be used (from the Brisbane City Council Waster Collection Data Open Data Site referenced above
 - **icon** (*Optional*): Name of the icon to use for the "normal" week sensor (defaults to mdi:trash-can)
 - **recycle_icon** (*Optional*): Name of the icon to use for the "recycle" week sensor (defaults to mdi:recycle)
 - **alert_hours** (*Optional*): Number of hours before bin day to raise alert (defaults to 12)
 - **green_bin** (*Optional*): true/false to indicate if you have a green bin (reflected in the Extra Bin attribute for the "normal" weeks
+- **kerbside_alert_hours** (*Optional*): Number of hours before kerbside to raise alert (defaults to 168)
+- **kerbside_icon** (*Optional*): Name of the icon to use for the "kerbside" sensor (defaults to mdi:truck)
 
 ## Sensor
 
@@ -66,7 +72,19 @@ The integration creates a sensor with the name specified in the configuration wi
 - **icon** (*String*): As specified in the configuration, or default of mdi:trash-can
 - **friendly_name** (*String*): As specified in the configuration
 
-The state of the sensor will be set to 'off' unless the 'Due In' attribute is less than or equal to the 'Alert Hours' when it will be set to 'on'.  The state will return to 'off' when the 'Due In' attribute reaches 0.
+## Kerbside Sensor
+
+If configured, the integration creates a sensor with the name specified in the configuration with the following attributes.
+
+- **name** (*String*): As specified in the configuration.  The "recycle" week sensor has the suffix " (Kerbside)"
+- **Next Kerbside Collection Date** (*DateTime*): Date and time (at 12:00AM) of the day kerbside items will actually be collected
+- **Next Kerbside On Footpath Date** (*DateTime*): Date and time (at 12:00AM) of the day kerbide items need to be on the footpath ready for collection 
+- **Kerbside Due In** (*Integer*): Number of hours until the 12:00AM on the next kerbside collection on footpath day for the specified property 
+- **Kerbside Alert Hours** (*Integer*): As specified in the configuration
+- **icon** (*String*): As specified in the configuration, or default of mdi:truck
+- **friendly_name** (*String*): As specified in the configuration
+
+The state of the sensor will be set to 'off' unless the 'Kerbside Due In' attribute is less than or equal to the 'Kerbside Alert Hours' when it will be set to 'on'.  The state will return to 'off' when the 'Kerbside Due In' attribute reaches 0.  Note that 'Kerbside Due In' is calculated relative to the 'Next Kerbside On Footpath Date' and not the 'Next Kerbside Collection Date'.
 
 ## Alerts
 
@@ -96,6 +114,19 @@ Home assistant alerts that use notifications can be setup to monitor the state o
     notifiers:
       - persistent_notification
 ```
+
+```yaml
+  take_the_kerbside_collection_out:
+    name: Take the kerbside collection items out
+    entity_id: sensor.brisbane_bin_day_kerbside
+    state: "on"
+    repeat: 60
+    can_acknowledge: false
+    skip_first: false
+    notifiers:
+      - persistent_notification
+```
+
 ## Reporting an Issue
 
 1. Setup your logger to print debug messages for this component using:
