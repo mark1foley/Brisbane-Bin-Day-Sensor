@@ -4,8 +4,7 @@ import logging
 import voluptuous as vol
 
 from dateutil.parser import parse
-from calendar import weekday
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 from time import strptime
 from urllib.parse import quote_plus
 
@@ -13,6 +12,7 @@ from homeassistant.components.binary_sensor import PLATFORM_SCHEMA
 from homeassistant.const import (CONF_NAME, STATE_ON, STATE_OFF)
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import Throttle
+from homeassistant.util import dt as dt_util
 import homeassistant.helpers.config_validation as cv
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,24 +32,27 @@ ATTR_DUE_IN = "Due In"
 ATTR_ALERT_HOURS = "Alert Hours"
 ATTR_EXTRA_BIN = "Extra Bin"
 ATTR_RECYCLE_WEEK = "Recycle Week"
+ATTR_LAST_UPDATE_FAILED = "Last Update Failed"
 
 CONF_BASE_URL = 'base_url'
 CONF_WASTE_DAYS_TABLE = 'days_table'
 CONF_WASTE_WEEKS_TABLE = 'weeks_table'
-CONF_KERBSIDE_TABLE = "kerbside_table"
+CONF_KERBSIDE_TABLE = 'kerbside_table'
 CONF_PROPERTY_NUMBER = 'property_number'
 CONF_ICON = 'icon'
 CONF_RECYCLE_ICON = 'recycle_icon'
 CONF_KERBSIDE_ICON = "kerbside_icon"
 CONF_ALERT_HOURS = 'alert_hours'
-CONF_KERBSIDE_ALERT_HOURS = "kerbside_alert_hours"
+CONF_KERBSIDE_ALERT_HOURS = 'kerbside_alert_hours'
 CONF_HAS_GREEN_BIN = 'green_bin'
+CONF_COLLECTION_TIME = 'collection_time'
 
 DEFAULT_ICON = 'mdi:trash-can'
 DEFAULT_RECYCLE_ICON = 'mdi:recycle'
-DEFAULT_KERBSIDE_ICON = "mdi:truck-alert"
+DEFAULT_KERBSIDE_ICON = 'mdi:truck-alert'
 DEFAULT_ALERT_HOURS = 12
 DEFAULT_KERBSIDE_ALERT_HOURS = 168
+DEFAULT_COLLECTION_TIME = "05:00"
 
 # Throttle updates to every 5 minutes 
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=300)
@@ -58,31 +61,15 @@ WEEK_DAYS = 7
 DAY_HOURS = 24
 HOUR_SECONDS = 3600
 
-def is_valid_date(date_str):
-    """Validate if a date string can be parsed."""
-    if not date_str:
-        return False
-    try:
-        parse(date_str)
-        return True
-    except (ValueError, TypeError):
-        return False
-
 def due_in_hours(time_stamp: datetime, *, label: str | None = None):
     """Get the remaining hours from now until a given datetime object."""
-    diff = time_stamp - datetime.now()    
+    diff = time_stamp - dt_util.now()
     total_seconds = diff.total_seconds()        
     if total_seconds < 0:        
         return 0  # Past due        
     hours = math.ceil(total_seconds / HOUR_SECONDS)
-    _LOGGER.debug("...{0} Due In: Now: {1} Next Collection: {2} Seconds: {3}, Hours: {4}".format(label, datetime.now(), time_stamp, total_seconds, hours))
+    _LOGGER.debug(f"...{label} Due In: Now: {dt_util.now()} Next Collection: {time_stamp} Seconds: {total_seconds}, Hours: {hours}")
     return hours
-
-def date_today():
-    return datetime.combine(date.today(), datetime.min.time())
-    
-def week_day():
-    return datetime.today().weekday()
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_NAME): cv.string,
@@ -98,9 +85,10 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_KERBSIDE_ICON, default=DEFAULT_KERBSIDE_ICON): cv.string,
 
     vol.Optional(CONF_HAS_GREEN_BIN, default=False): cv.boolean,
+    vol.Optional(CONF_COLLECTION_TIME, default=DEFAULT_COLLECTION_TIME): cv.string,
 })
 
-def setup_platform(hass, config, add_devices, discovery_info=None):
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     shared_data = BneWasteCollectionData(
         base_url=config[CONF_BASE_URL],
         days_table=config[CONF_WASTE_DAYS_TABLE],
@@ -108,6 +96,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
         kerbside_table=config.get(CONF_KERBSIDE_TABLE),  # optional
         property_number=config[CONF_PROPERTY_NUMBER],
         has_green_bin=config[CONF_HAS_GREEN_BIN],
+        collection_time=config[CONF_COLLECTION_TIME],
     )
 
     sensors = [
@@ -142,7 +131,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             CONF_KERBSIDE_TABLE,
         )
 
-    add_devices(sensors)
+    async_add_entities(sensors)
 
 class BneWasteCollectionSensor(Entity):
     def __init__(self, shared_data, name, icon, alert_hours, recycle_week):
@@ -179,7 +168,8 @@ class BneWasteCollectionSensor(Entity):
             ATTR_NEXT_COLLECTION_DATE: self._attrs.get(ATTR_NEXT_COLLECTION_DATE),
             ATTR_EXTRA_BIN: self._attrs.get(ATTR_EXTRA_BIN),
             ATTR_DUE_IN: self._attrs.get(ATTR_DUE_IN),
-            ATTR_RECYCLE_WEEK: self._attrs.get(ATTR_RECYCLE_WEEK)
+            ATTR_RECYCLE_WEEK: self._attrs.get(ATTR_RECYCLE_WEEK),
+            ATTR_LAST_UPDATE_FAILED: self.data.last_update_failed,
         }
 
         return attrs
@@ -217,7 +207,7 @@ class BneWasteCollectionSensor(Entity):
             )
 
         base[ATTR_DUE_IN] = due_in_hours(
-            parse(base[ATTR_NEXT_COLLECTION_DATE]),
+            dt_util.as_local(parse(base[ATTR_NEXT_COLLECTION_DATE])),
             label=self._name,
         )
         self._attrs = base
@@ -245,7 +235,7 @@ class BneWasteCollectionKerbsideSensor(Entity):
 
     @property
     def extra_state_attributes(self):
-        return self._attrs
+        return {**self._attrs, ATTR_LAST_UPDATE_FAILED: self.data.last_update_failed}
 
     def update(self):
         self.data.update()
@@ -260,7 +250,7 @@ class BneWasteCollectionKerbsideSensor(Entity):
             ATTR_NEXT_KERBSIDE_COLLECTION_DATE: parse(base[ATTR_NEXT_KERBSIDE_COLLECTION_DATE]),
             ATTR_NEXT_KERBSIDE_ON_FOOTPATH_DATE: parse(base[ATTR_NEXT_KERBSIDE_ON_FOOTPATH_DATE]),
             ATTR_KERBSIDE_DUE_IN: due_in_hours(
-                parse(base[ATTR_NEXT_KERBSIDE_ON_FOOTPATH_DATE]),
+                dt_util.as_local(parse(base[ATTR_NEXT_KERBSIDE_ON_FOOTPATH_DATE])),
                 label=self._name,
             ),
             ATTR_KERBSIDE_ALERT_HOURS: self._alert_hours,
@@ -268,10 +258,6 @@ class BneWasteCollectionKerbsideSensor(Entity):
 
 class BneWasteCollectionData:
     """Fetches and caches all BNE waste + kerbside data."""
-
-    _DAY_CACHE = {}       # property_number -> (fetched_at, data)
-    _WEEK_CACHE = {}      # (zone, week_start) -> (fetched_at, rows)
-    _KERBSIDE_CACHE = {}  # suburb -> (fetched_at, data)
 
     def __init__(
         self,
@@ -281,6 +267,7 @@ class BneWasteCollectionData:
         kerbside_table,
         property_number,
         has_green_bin,
+        collection_time,
     ):
         self._base_url = base_url
         self._days_table = days_table
@@ -288,7 +275,13 @@ class BneWasteCollectionData:
         self._kerbside_table = kerbside_table
         self._property_number = property_number
         self._has_green_bin = has_green_bin
+        self._collection_time = datetime.strptime(collection_time, "%H:%M").time()
         self.data = {}
+
+        self._day_cache = {}       # property_number -> (fetched_at, data)
+        self._week_cache = {}      # (zone, week_start) -> (fetched_at, rows)
+        self._kerbside_cache = {}  # suburb -> (fetched_at, data)
+        self.last_update_failed = False
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     def update(self):
@@ -298,15 +291,17 @@ class BneWasteCollectionData:
 
             if self._kerbside_table:
                 self.data.update(self._get_kerbside(self.data))
+            self.last_update_failed = False
         except (requests.RequestException, ValueError) as err:
             _LOGGER.error("BneWasteCollection update failed, will retry next cycle: %s", err)
+            self.last_update_failed = True
 
     def _is_cache_valid(self, cached_dt):
-        return cached_dt and (datetime.now() - cached_dt) < timedelta(hours=1)
+        return cached_dt and (dt_util.now() - cached_dt) < timedelta(hours=1)
 
     def _get_collection_day(self):
-        cache = self._DAY_CACHE.get(self._property_number)
-        now = datetime.now()
+        cache = self._day_cache.get(self._property_number)
+        now = dt_util.now()
 
         if cache and self._is_cache_valid(cache[0]):
             _LOGGER.debug("Using cached collection day data")
@@ -333,12 +328,16 @@ class BneWasteCollectionData:
 
         row = rows[0]
         collection_day_no = strptime(row["collection_day"], "%A").tm_wday
-        today_no = datetime.today().weekday()
+        now_local = dt_util.as_local(dt_util.now())
+        today_no = now_local.weekday()
 
-        if collection_day_no > today_no:
-            next_date = date_today() + timedelta(days=collection_day_no - today_no)
-        else:
-            next_date = date_today() + timedelta(days=7 + collection_day_no - today_no)
+        days_ahead = collection_day_no - today_no
+        if days_ahead < 0:
+            days_ahead += 7
+
+        next_date = dt_util.as_local(
+            datetime.combine(now_local.date() + timedelta(days=days_ahead), self._collection_time)
+        )
 
         data = {
             ATTR_PROPERTY_NUMBER: self._property_number,
@@ -350,7 +349,7 @@ class BneWasteCollectionData:
             ATTR_NEXT_COLLECTION_DATE: next_date.isoformat(),
         }
 
-        self._DAY_CACHE[self._property_number] = (now, data)
+        self._day_cache[self._property_number] = (now, data)
         return dict(data)
 
     def _get_collection_week(self, base):
@@ -363,9 +362,9 @@ class BneWasteCollectionData:
         ).date()
 
         key = (base[ATTR_COLLECTION_ZONE], week_start)
-        now = datetime.now()
+        now = dt_util.now()
 
-        cache = self._WEEK_CACHE.get(key)
+        cache = self._week_cache.get(key)
         if cache and self._is_cache_valid(cache[0]):
             _LOGGER.debug("Using cached collection week data")
             return cache[1]
@@ -384,7 +383,7 @@ class BneWasteCollectionData:
             context="Collection week",
         )
         # An empty result is valid — it means this is not a recycling week
-        self._WEEK_CACHE[key] = (now, rows)
+        self._week_cache[key] = (now, rows)
         return rows
 
     def _get_kerbside(self, base):
@@ -393,9 +392,9 @@ class BneWasteCollectionData:
             return {}
 
         key = suburb.upper()
-        now = datetime.now()
+        now = dt_util.now()
 
-        cache = self._KERBSIDE_CACHE.get(key)
+        cache = self._kerbside_cache.get(key)
         if cache and self._is_cache_valid(cache[0]):
             _LOGGER.debug("Using cached kerbside data")
             return dict(cache[1])
@@ -410,6 +409,13 @@ class BneWasteCollectionData:
             full_url,
             context="Kerbside collection",
         )
+
+        if not rows:
+            _LOGGER.warning(
+                "Kerbside API returned no results for suburb: %s", suburb
+            )
+            return {}
+
         row = rows[0]
         data = {
             ATTR_NEXT_KERBSIDE_COLLECTION_DATE: parse(
@@ -420,7 +426,7 @@ class BneWasteCollectionData:
             ).isoformat(),
         }
 
-        self._KERBSIDE_CACHE[key] = (now, data)
+        self._kerbside_cache[key] = (now, data)
         return dict(data)
 
     def _execute_query(self, full_url, *, context):

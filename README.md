@@ -52,6 +52,7 @@ Configuration variables:
 - **green_bin** (*Optional*): true/false to indicate if you have a green bin (reflected in the Extra Bin attribute for the "normal" weeks
 - **kerbside_alert_hours** (*Optional*): Number of hours before kerbside to raise alert (defaults to 168)
 - **kerbside_icon** (*Optional*): Name of the icon to use for the "kerbside" sensor (defaults to mdi:truck)
+- **collection_time**  (*Optional*): Usual collection time for bins each weeks. At that time the "Due In" attribute of the sensors will reach 0. (defaults to 5:00)
 
 ## Sensor
 
