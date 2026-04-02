@@ -1,6 +1,6 @@
 """Constants for the Brisbane Bin Day Sensor integration."""
 
-DOMAIN = "brisbane_bin_day"
+DOMAIN = "bne_wc"
 
 # ── API ──────────────────────────────────────────────────────────────────────
 
