@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="custom_components/bne_wc/brand/logo.png" alt="Brisbane Bin Day Sensor Logo" width="256">
+</p>
+
 # Brisbane Bin Day Sensor
 
 This project creates two new Home Assistant binary sensors that provide details of bin collections in the Brisbane City Council area.  One sensor is for the "normal" (or optionally green bin) week while the other is for the recycle (yellow bin) week.  Two sensors are used to enable the creation of alerts in Home Assistant with names specific to the weeks.
