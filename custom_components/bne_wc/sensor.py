@@ -1,65 +1,42 @@
 import math
 import requests
 import logging
-import voluptuous as vol
 
 from dateutil.parser import parse
 from datetime import datetime, timedelta
 from time import strptime
 from urllib.parse import quote_plus
 
-from homeassistant.components.binary_sensor import PLATFORM_SCHEMA
-from homeassistant.const import (CONF_NAME, STATE_ON, STATE_OFF)
-from homeassistant.helpers.entity import Entity
+from homeassistant.components.binary_sensor import BinarySensorEntity  # ← CHANGED: was "PLATFORM_SCHEMA" import; also removed vol, cv, CONF_NAME, STATE_ON/OFF imports
+from homeassistant.core import HomeAssistant                            # ← NEW
+from homeassistant.config_entries import ConfigEntry                    # ← NEW
+from homeassistant.helpers.entity_platform import AddEntitiesCallback  # ← NEW
 from homeassistant.util import Throttle
 from homeassistant.util import dt as dt_util
-import homeassistant.helpers.config_validation as cv
+
+from .const import (                                                    # ← NEW: constants moved to const.py
+    DOMAIN,
+    ATTR_PROPERTY_NUMBER, ATTR_SUBURB, ATTR_STREET, ATTR_HOUSE_NUMBER,
+    ATTR_COLLECTION_DAY, ATTR_COLLECTION_ZONE, ATTR_NEXT_COLLECTION_DATE,
+    ATTR_NEXT_KERBSIDE_COLLECTION_DATE, ATTR_NEXT_KERBSIDE_ON_FOOTPATH_DATE,
+    ATTR_KERBSIDE_DUE_IN, ATTR_KERBSIDE_ALERT_HOURS, ATTR_DUE_IN,
+    ATTR_ALERT_HOURS, ATTR_EXTRA_BIN, ATTR_RECYCLE_WEEK, ATTR_LAST_UPDATE_FAILED,
+    CONF_BASE_URL, CONF_WASTE_DAYS_TABLE, CONF_WASTE_WEEKS_TABLE,
+    CONF_KERBSIDE_TABLE, CONF_PROPERTY_NUMBER, CONF_ICON, CONF_RECYCLE_ICON,
+    CONF_KERBSIDE_ICON, CONF_ALERT_HOURS, CONF_KERBSIDE_ALERT_HOURS,
+    CONF_HAS_GREEN_BIN, CONF_COLLECTION_TIME,
+    DEFAULT_ICON, DEFAULT_RECYCLE_ICON, DEFAULT_KERBSIDE_ICON,
+    DEFAULT_ALERT_HOURS, DEFAULT_KERBSIDE_ALERT_HOURS,
+    HOUR_SECONDS,
+)
 
 _LOGGER = logging.getLogger(__name__)
-
-ATTR_PROPERTY_NUMBER = "Property Number"
-ATTR_SUBURB = "Suburb"
-ATTR_STREET = "Street"
-ATTR_HOUSE_NUMBER = "House Number"
-ATTR_COLLECTION_DAY = "Collection Day"
-ATTR_COLLECTION_ZONE = "Collection Zone"
-ATTR_NEXT_COLLECTION_DATE = "Next Collection Date"
-ATTR_NEXT_KERBSIDE_COLLECTION_DATE = "Next Kerbside Collection Date"
-ATTR_NEXT_KERBSIDE_ON_FOOTPATH_DATE = "Next Kerbside On Footpath Date"
-ATTR_KERBSIDE_DUE_IN = "Kerbside Due In"
-ATTR_KERBSIDE_ALERT_HOURS = "Kerbside Alert Hours"
-ATTR_DUE_IN = "Due In"
-ATTR_ALERT_HOURS = "Alert Hours"
-ATTR_EXTRA_BIN = "Extra Bin"
-ATTR_RECYCLE_WEEK = "Recycle Week"
-ATTR_LAST_UPDATE_FAILED = "Last Update Failed"
-
-CONF_BASE_URL = 'base_url'
-CONF_WASTE_DAYS_TABLE = 'days_table'
-CONF_WASTE_WEEKS_TABLE = 'weeks_table'
-CONF_KERBSIDE_TABLE = 'kerbside_table'
-CONF_PROPERTY_NUMBER = 'property_number'
-CONF_ICON = 'icon'
-CONF_RECYCLE_ICON = 'recycle_icon'
-CONF_KERBSIDE_ICON = "kerbside_icon"
-CONF_ALERT_HOURS = 'alert_hours'
-CONF_KERBSIDE_ALERT_HOURS = 'kerbside_alert_hours'
-CONF_HAS_GREEN_BIN = 'green_bin'
-CONF_COLLECTION_TIME = 'collection_time'
-
-DEFAULT_ICON = 'mdi:trash-can'
-DEFAULT_RECYCLE_ICON = 'mdi:recycle'
-DEFAULT_KERBSIDE_ICON = 'mdi:truck-alert'
-DEFAULT_ALERT_HOURS = 12
-DEFAULT_KERBSIDE_ALERT_HOURS = 168
-DEFAULT_COLLECTION_TIME = "05:00"
 
 # Throttle updates to every 5 minutes 
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=300)
 
 WEEK_DAYS = 7
 DAY_HOURS = 24
-HOUR_SECONDS = 3600
 
 def due_in_hours(time_stamp: datetime, *, label: str | None = None):
     """Get the remaining hours from now until a given datetime object."""
@@ -71,56 +48,48 @@ def due_in_hours(time_stamp: datetime, *, label: str | None = None):
     _LOGGER.debug(f"...{label} Due In: Now: {dt_util.now()} Next Collection: {time_stamp} Seconds: {total_seconds}, Hours: {hours}")
     return hours
 
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Required(CONF_NAME): cv.string,
-    vol.Required(CONF_BASE_URL): cv.string,
-    vol.Required(CONF_WASTE_DAYS_TABLE): cv.string,
-    vol.Required(CONF_WASTE_WEEKS_TABLE): cv.string,
-    vol.Required(CONF_PROPERTY_NUMBER): cv.positive_int,
-    vol.Optional(CONF_KERBSIDE_TABLE): cv.string,
-    vol.Optional(CONF_ALERT_HOURS, default=DEFAULT_ALERT_HOURS): cv.positive_int,
-    vol.Optional(CONF_KERBSIDE_ALERT_HOURS, default=DEFAULT_KERBSIDE_ALERT_HOURS): cv.positive_int,
-    vol.Optional(CONF_ICON, default=DEFAULT_ICON): cv.string,
-    vol.Optional(CONF_RECYCLE_ICON, default=DEFAULT_RECYCLE_ICON): cv.string,
-    vol.Optional(CONF_KERBSIDE_ICON, default=DEFAULT_KERBSIDE_ICON): cv.string,
+async def async_setup_entry(                                            # ← CHANGED: was async_setup_platform
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Brisbane Waste Collection sensors from a config entry."""
+    config = {**entry.data, **entry.options}                           # ← NEW: merge data + options
 
-    vol.Optional(CONF_HAS_GREEN_BIN, default=False): cv.boolean,
-    vol.Optional(CONF_COLLECTION_TIME, default=DEFAULT_COLLECTION_TIME): cv.string,
-})
-
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     shared_data = BneWasteCollectionData(
         base_url=config[CONF_BASE_URL],
         days_table=config[CONF_WASTE_DAYS_TABLE],
         weeks_table=config[CONF_WASTE_WEEKS_TABLE],
-        kerbside_table=config.get(CONF_KERBSIDE_TABLE),  # optional
+        kerbside_table=config.get(CONF_KERBSIDE_TABLE),
         property_number=config[CONF_PROPERTY_NUMBER],
-        has_green_bin=config[CONF_HAS_GREEN_BIN],
-        collection_time=config[CONF_COLLECTION_TIME],
+        has_green_bin=config.get(CONF_HAS_GREEN_BIN, False),
+        collection_time=config.get(CONF_COLLECTION_TIME, "05:00"),
     )
+
+    name = config.get("name", "Brisbane Bin Day")                      # ← CHANGED: was config[CONF_NAME]
 
     sensors = [
         BneWasteCollectionSensor(
             shared_data=shared_data,
-            name=config[CONF_NAME],
-            icon=config[CONF_ICON],
-            alert_hours=config[CONF_ALERT_HOURS],
+            name=name,
+            icon=config.get(CONF_ICON, DEFAULT_ICON),
+            alert_hours=config.get(CONF_ALERT_HOURS, DEFAULT_ALERT_HOURS),
             recycle_week=False,
         ),
         BneWasteCollectionSensor(
             shared_data=shared_data,
-            name=f"{config[CONF_NAME]} (Recycle)",
-            icon=config[CONF_RECYCLE_ICON],
-            alert_hours=config[CONF_ALERT_HOURS],
+            name=f"{name} (Recycle)",
+            icon=config.get(CONF_RECYCLE_ICON, DEFAULT_RECYCLE_ICON),
+            alert_hours=config.get(CONF_ALERT_HOURS, DEFAULT_ALERT_HOURS),
             recycle_week=True,
         ),
     ]
 
-    if CONF_KERBSIDE_TABLE in config:
+    if config.get(CONF_KERBSIDE_TABLE):
         sensors.append(
             BneWasteCollectionKerbsideSensor(
                 shared_data,
-                f"{config[CONF_NAME]} (Kerbside)",
+                f"{name} (Kerbside)",
                 config.get(CONF_KERBSIDE_ICON, DEFAULT_KERBSIDE_ICON),
                 config.get(CONF_KERBSIDE_ALERT_HOURS, DEFAULT_KERBSIDE_ALERT_HOURS),
             )
@@ -133,7 +102,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
     async_add_entities(sensors)
 
-class BneWasteCollectionSensor(Entity):
+class BneWasteCollectionSensor(BinarySensorEntity):                    # ← CHANGED: was Entity
     def __init__(self, shared_data, name, icon, alert_hours, recycle_week):
         self.data = shared_data
         self._name = name
@@ -151,9 +120,9 @@ class BneWasteCollectionSensor(Entity):
         return self._icon
 
     @property
-    def state(self):
+    def is_on(self) -> bool:                                           # ← CHANGED: was state returning STATE_ON/STATE_OFF
         due = self._attrs.get(ATTR_DUE_IN, -1)
-        return STATE_ON if 0 < due <= self._alert_hours else STATE_OFF
+        return 0 < due <= self._alert_hours
 
     @property
     def extra_state_attributes(self):
@@ -212,7 +181,7 @@ class BneWasteCollectionSensor(Entity):
         )
         self._attrs = base
 
-class BneWasteCollectionKerbsideSensor(Entity):
+class BneWasteCollectionKerbsideSensor(BinarySensorEntity):            # ← CHANGED: was Entity
     def __init__(self, shared_data, name, icon, alert_hours):
         self.data = shared_data
         self._name = name
@@ -229,9 +198,9 @@ class BneWasteCollectionKerbsideSensor(Entity):
         return self._icon
 
     @property
-    def state(self):
+    def is_on(self) -> bool:                                           # ← CHANGED: was state returning STATE_ON/STATE_OFF
         due = self._attrs.get(ATTR_KERBSIDE_DUE_IN, -1)
-        return STATE_ON if 0 < due <= self._alert_hours else STATE_OFF
+        return 0 < due <= self._alert_hours
 
     @property
     def extra_state_attributes(self):
@@ -313,7 +282,7 @@ class BneWasteCollectionData:
             "query": quote_plus(f"property_id = {int(self._property_number)}"),
         })
 
-        _LOGGER.debug("Collection day cache empty or expired.  Fetching data using API: %s", full_url)
+        _LOGGER.debug(f"Collection day cache empty or expired.  Fetching data using API: {full_url}")
         rows = self._execute_query(
             full_url,
             context="Collection day",
@@ -377,7 +346,7 @@ class BneWasteCollectionData:
             ),
         })
 
-        _LOGGER.debug("Collection week cache empty or expired.  Fetching data using API: %s", full_url)
+        _LOGGER.debug(f"Collection week cache empty or expired.  Fetching data using API: {full_url}")
         rows = self._execute_query(
             full_url,
             context="Collection week",
@@ -404,7 +373,7 @@ class BneWasteCollectionData:
             "query": quote_plus(f"suburb like '{suburb}'"),
         })
 
-        _LOGGER.debug("Kerbside cache empty or expired.  Fetching data using API: %s", full_url)
+        _LOGGER.debug(f"Kerbside cache empty or expired.  Fetching data using API: {full_url}")
         rows = self._execute_query(
             full_url,
             context="Kerbside collection",

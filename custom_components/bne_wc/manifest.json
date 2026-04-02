@@ -1,10 +1,12 @@
 {
-    "domain": "bne_wc",
-    "name": "Brisbane Bin Day Sensor",
-    "documentation": "https://github.com/mark1foley/Brisbane-Bin-Day-Sensor",
-    "issue_tracker": "https://github.com/mark1foley/Brisbane-Bin-Day-Sensor/issues",
-    "dependencies": [],
-    "codeowners": ["@mark1foley"],
-    "requirements": [],
-    "version": "1.20220521.01"
+  "domain": "bne_wc",
+  "name": "Brisbane Bin Day Sensor",
+  "codeowners": ["@mark1foley"],
+  "config_flow": true,
+  "documentation": "https://github.com/mark1foley/Brisbane-Bin-Day-Sensor",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/mark1foley/Brisbane-Bin-Day-Sensor/issues",
+  "requirements": ["requests", "python-dateutil"],
+  "version": "2.0.0"
 }
