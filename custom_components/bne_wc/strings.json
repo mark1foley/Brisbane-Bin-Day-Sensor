@@ -5,16 +5,13 @@
         "title": "Brisbane Waste Collection Setup",
         "description": "Enter your Brisbane City Council property details.",
         "data": {
-          "name": "Integration Name",
-          "base_url": "API Base URL",
-          "days_table": "Collection Days Dataset ID",
-          "weeks_table": "Collection Weeks Dataset ID",
-          "kerbside_table": "Kerbside Dataset ID (optional)",
-          "property_number": "Property Number",
-          "green_bin": "I have a Green Garden Bin",
-          "collection_time": "Collection Time (HH:MM)",
-          "alert_hours": "Bin Alert Hours Before Collection",
-          "kerbside_alert_hours": "Kerbside Alert Hours Before Collection"
+           "name": "Integration Name",
+           "property_number": "Property Number",
+           "green_bin": "I have a Green Garden Bin",
+           "enable_kerbside": "Enable Kerbside Collection Sensor",
+           "collection_time": "Collection Time (HH:MM, e.g. 05:00)",
+           "alert_hours": "Bin Alert Hours Before Collection",
+           "kerbside_alert_hours": "Kerbside Alert Hours Before Collection"
         }
       }
     },
@@ -33,14 +30,15 @@
       "init": {
         "title": "Brisbane Waste Collection Options",
         "data": {
-          "green_bin": "I have a Green Garden Bin",
-          "collection_time": "Collection Time (HH:MM)",
-          "alert_hours": "Bin Alert Hours Before Collection",
-          "kerbside_alert_hours": "Kerbside Alert Hours Before Collection",
-          "icon": "Bin Sensor Icon",
-          "recycle_icon": "Recycle Sensor Icon",
-          "kerbside_icon": "Kerbside Sensor Icon"
-        }
+           "green_bin": "I have a Green Garden Bin",
+           "enable_kerbside": "Enable Kerbside Collection Sensor",
+           "collection_time": "Collection Time (HH:MM, e.g. 05:00)",
+           "alert_hours": "Bin Alert Hours Before Collection",
+           "kerbside_alert_hours": "Kerbside Alert Hours Before Collection",
+           "icon": "Bin Sensor Icon (MDI icon name)",
+           "recycle_icon": "Recycle Sensor Icon (MDI icon name)",
+           "kerbside_icon": "Kerbside Sensor Icon (MDI icon name)"
+         }
       }
     }
   }

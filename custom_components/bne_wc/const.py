@@ -15,6 +15,7 @@ CONF_ALERT_HOURS = "alert_hours"
 CONF_KERBSIDE_ALERT_HOURS = "kerbside_alert_hours"
 CONF_HAS_GREEN_BIN = "green_bin"
 CONF_COLLECTION_TIME = "collection_time"
+CONF_ENABLE_KERBSIDE = "enable_kerbside"
  
 # Defaults
 DEFAULT_NAME = "Brisbane Bin Day"
@@ -30,7 +31,10 @@ DEFAULT_BASE_URL = (
     "https://www.data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets"
     "/{dataset_id}/records?where={query}&limit=100"
 )
- 
+DEFAULT_WASTE_DAYS_TABLE = "waste-collection-days-collection-days"
+DEFAULT_WASTE_WEEKS_TABLE = "waste-collection-days-collection-weeks"
+DEFAULT_KERBSIDE_TABLE = "kerbside-large-item-collection-schedule"
+  
 # Sensor attribute names
 ATTR_PROPERTY_NUMBER = "Property Number"
 ATTR_SUBURB = "Suburb"

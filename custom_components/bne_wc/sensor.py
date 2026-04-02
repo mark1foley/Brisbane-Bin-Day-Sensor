@@ -27,7 +27,7 @@ from .const import (                                                    # ← NE
     CONF_HAS_GREEN_BIN, CONF_COLLECTION_TIME,
     DEFAULT_ICON, DEFAULT_RECYCLE_ICON, DEFAULT_KERBSIDE_ICON,
     DEFAULT_ALERT_HOURS, DEFAULT_KERBSIDE_ALERT_HOURS,
-    HOUR_SECONDS,
+    HOUR_SECONDS,CONF_ENABLE_KERBSIDE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -85,7 +85,7 @@ async def async_setup_entry(                                            # ← CH
         ),
     ]
 
-    if config.get(CONF_KERBSIDE_TABLE):
+    if config.get(CONF_ENABLE_KERBSIDE):
         sensors.append(
             BneWasteCollectionKerbsideSensor(
                 shared_data,
