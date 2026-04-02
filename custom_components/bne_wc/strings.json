@@ -2,44 +2,35 @@
   "config": {
     "step": {
       "user": {
-        "title": "Brisbane Waste Collection Setup",
-        "description": "Enter your Brisbane City Council property details.",
+        "title": "Select your suburb",
         "data": {
-           "name": "Integration Name",
-           "property_number": "Property Number",
-           "green_bin": "I have a Green Garden Bin",
-           "enable_kerbside": "Enable Kerbside Collection Sensor",
-           "collection_time": "Collection Time (HH:MM, e.g. 05:00)",
-           "alert_hours": "Bin Alert Hours Before Collection",
-           "kerbside_alert_hours": "Kerbside Alert Hours Before Collection"
+          "suburb": "Suburb"
+        }
+      },
+      "street": {
+        "title": "Select your street",
+        "description": "Suburb: {suburb}",
+        "data": {
+          "street_name": "Street Name"
+        }
+      },
+      "property": {
+        "title": "Select your property",
+        "description": "Suburb: {suburb}\nStreet: {street}",
+        "data": {
+          "house_number": "House Number",
+          "enable_kerbside": "Enable Kerbside Collection Sensor"
         }
       }
     },
     "error": {
-      "cannot_connect": "Unable to connect to the Brisbane Open Data API. Please check the URL.",
-      "invalid_property_number": "No collection data found for that property number. Please check it is correct.",
-      "invalid_response": "The API returned an unexpected response.",
-      "unknown": "An unexpected error occurred."
+      "cannot_connect": "Unable to connect to the Brisbane Open Data API",
+      "no_streets_found": "No streets found for the selected suburb",
+      "no_properties_found": "No properties found for the selected street",
+      "property_not_found": "Selected property could not be found"
     },
     "abort": {
-      "already_configured": "This property is already configured."
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Brisbane Waste Collection Options",
-        "data": {
-           "green_bin": "I have a Green Garden Bin",
-           "enable_kerbside": "Enable Kerbside Collection Sensor",
-           "collection_time": "Collection Time (HH:MM, e.g. 05:00)",
-           "alert_hours": "Bin Alert Hours Before Collection",
-           "kerbside_alert_hours": "Kerbside Alert Hours Before Collection",
-           "icon": "Bin Sensor Icon (MDI icon name)",
-           "recycle_icon": "Recycle Sensor Icon (MDI icon name)",
-           "kerbside_icon": "Kerbside Sensor Icon (MDI icon name)"
-         }
-      }
+      "already_configured": "This property is already configured"
     }
   }
 }

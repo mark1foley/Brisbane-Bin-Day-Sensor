@@ -10,6 +10,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers import selector
 
 from .const import (
     CONF_ENABLE_KERBSIDE,
@@ -65,25 +66,19 @@ def _fetch_properties(table: str, suburb: str, street: str) -> list[dict]:
         limit=DEFAULT_LIMIT,
     )
     url = f"{base_url}&select=house_number,property_id&order_by=house_number"
-
-    print(f"DEBUG: Fetching properties from URL: {url}")
-    print(f"DEBUG: Table parameter: {table}")
-    print(f"DEBUG: Suburb: {suburb}, Street: {street}")
-
+ 
     try:
         resp = requests.get(url, timeout=10)
-        print(f"DEBUG: Response status code: {resp.status_code}")
         resp.raise_for_status()
         data = resp.json()
-        print(f"DEBUG: Response data keys: {data.keys() if isinstance(data, dict) else 'Not a dict'}")
         return [
             r for r in data.get("results", [])
             if r.get("house_number") and r.get("property_id")
         ]
     except Exception as e:
-        print(f"DEBUG: Exception occurred: {type(e).__name__}: {e}")
+        _LOGGER.exception("Failed to fetch properties: %s", e)
         raise
-
+ 
 
 # ── Config Flow ──────────────────────────────────────────────────────────────
 
@@ -227,8 +222,13 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema(
             {
-                vol.Required("house_number"): vol.In(sorted(house_map.keys())),
-                vol.Optional(CONF_ENABLE_KERBSIDE, default=False): bool,
+                vol.Required("house_number"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=sorted(house_map.keys()),
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(CONF_ENABLE_KERBSIDE, default=False): selector.BooleanSelector(),
             }
         )
 
@@ -277,7 +277,7 @@ class BneWasteOptionsFlow(config_entries.OptionsFlow):
                         CONF_ENABLE_KERBSIDE,
                         self._config_entry.data.get(CONF_ENABLE_KERBSIDE, False),
                     ),
-                ): bool,
+                ): selector.BooleanSelector(),
             }
         )
 

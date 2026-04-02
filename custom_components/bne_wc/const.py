@@ -13,9 +13,9 @@ DEFAULT_LIMIT = 100
 
 # ── Dataset table names ──────────────────────────────────────────────────────
 
-DEFAULT_WASTE_DAYS_TABLE    = "waste-management-bin-day"
-DEFAULT_WASTE_WEEKS_TABLE   = "bin-collection-schedule-recycling-weeks"
-DEFAULT_KERBSIDE_TABLE      = "kerbside-large-item-collection"
+DEFAULT_WASTE_DAYS_TABLE    = "waste-collection-days-collection-days"
+DEFAULT_WASTE_WEEKS_TABLE   = "waste-collection-days-collection-weeks"
+DEFAULT_KERBSIDE_TABLE      = "kerbside-large-item-collection-schedule"
 
 # ── Config entry keys ────────────────────────────────────────────────────────
 
