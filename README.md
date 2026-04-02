@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="custom_components/bne_wc/brand/logo.png" alt="Brisbane Bin Day Sensor Logo" width="256">
+  <img src="custom_components/bne_wc/brand/icon.png" alt="Brisbane Bin Day Sensor Logo" width="256">
 </p>
 
 # Brisbane Bin Day Sensor
