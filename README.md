@@ -10,7 +10,7 @@ If desired, a third optional sensor can be created for the annual kerdside colle
 
 While most Councils provide details of their waste collection schedules via their Open Data portals there is no consistency or standards in how the data is structured (especially when it comes to the recycle week determination).  Therefore, it is not possible to create a generic sensor but you are welcome to fork this code and cusrtomize it for your particular Council. 
 
-[![Open your Home Assistant instance and open a repository inside the HACS dialog.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mark1foley&repository=https://github.com/mark1foley/Brisbane-Bin-Day-Sensor&category=integration)
+[![Open your Home Assistant instance and open a repository inside the HACS dialog.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mark1foley&repository=Brisbane-Bin-Day-Sensor&category=integration)
 
 ## Installation (HACS) - Recommended
 0. Have [HACS](https://custom-components.github.io/hacs/installation/manual/) installed, this will allow you to easily update
