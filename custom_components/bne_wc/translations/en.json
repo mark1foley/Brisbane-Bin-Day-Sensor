@@ -3,47 +3,43 @@
     "step": {
       "user": {
         "title": "Brisbane Waste Collection Setup",
-        "description": "Enter your Brisbane City Council property details. Your property number can be found on your rates notice.",
+        "description": "Select your suburb to begin configuration.",
         "data": {
-          "name": "Integration Name",
-          "base_url": "API Base URL",
-          "days_table": "Collection Days Dataset ID",
-          "weeks_table": "Collection Weeks Dataset ID",
-          "kerbside_table": "Kerbside Dataset ID (leave blank if not needed)",
-          "property_number": "Property Number",
-          "green_bin": "I have a Green Garden Bin",
-          "collection_time": "Collection Time (HH:MM, e.g. 05:00)",
-          "alert_hours": "Bin Alert Hours Before Collection",
-          "kerbside_alert_hours": "Kerbside Alert Hours Before Collection"
+          "suburb": "Suburb"
+        }
+      },
+      "street": {
+        "title": "Select Street",
+        "description": "Choose your street in {suburb}.",
+        "data": {
+          "street_name": "Street Name"
+        }
+      },
+      "property": {
+        "title": "Select Property",
+        "description": "Choose your house number on {street}, {suburb}.",
+        "data": {
+          "house_number": "House Number",
+          "enable_kerbside": "Enable Kerbside Collection Sensor"
         }
       }
     },
     "error": {
-      "cannot_connect": "Unable to connect to the Brisbane Open Data API. Please check the Base URL.",
-      "invalid_property_number": "No collection data was found for that property number. Please verify it is correct.",
-      "invalid_response": "The API returned an unexpected or error response.",
-      "unknown": "An unexpected error occurred. Please check the logs."
-    },
-    "abort": {
-      "already_configured": "This property number is already configured."
+      "cannot_connect": "Unable to connect to the Brisbane Open Data API",
+      "no_streets_found": "No streets found for the selected suburb",
+      "no_properties_found": "No properties found for the selected street",
+      "property_not_found": "Selected property could not be found"
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Brisbane Waste Collection Options",
-        "description": "Update optional settings for your waste collection sensors.",
+        "description": "Configure your waste collection options.",
         "data": {
-          "green_bin": "I have a Green Garden Bin",
-          "collection_time": "Collection Time (HH:MM, e.g. 05:00)",
-          "alert_hours": "Bin Alert Hours Before Collection",
-          "kerbside_alert_hours": "Kerbside Alert Hours Before Collection",
-          "icon": "Bin Sensor Icon (MDI icon name)",
-          "recycle_icon": "Recycle Sensor Icon (MDI icon name)",
-          "kerbside_icon": "Kerbside Sensor Icon (MDI icon name)"
+          "enable_kerbside": "Enable Kerbside Collection Sensor"
         }
       }
     }
   }
 }
- 
