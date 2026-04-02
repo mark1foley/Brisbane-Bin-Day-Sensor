@@ -15,6 +15,7 @@ from .const import (
     CONF_ENABLE_KERBSIDE,
     CONF_PROPERTY_NUMBER,
     DEFAULT_BASE_URL,
+    DEFAULT_LIMIT,
     DEFAULT_KERBSIDE_TABLE,
     DEFAULT_WASTE_DAYS_TABLE,
     DEFAULT_WASTE_WEEKS_TABLE,
@@ -26,62 +27,62 @@ _LOGGER = logging.getLogger(__name__)
 
 # ── Brisbane Open Data API helpers ──────────────────────────────────────────
 
-def _api_url(base_url: str, table: str) -> str:
-    """Build the OpenDataSoft v2.1 records endpoint URL."""
-    return f"{base_url}{table}/records"
-
-
-def _fetch_suburbs(base_url: str, table: str) -> list[str]:
+def _fetch_suburbs(table: str) -> list[str]:
     """Return a sorted list of distinct suburbs from the days table."""
-    url = _api_url(base_url, table)
-    params = {
-        "select": "Suburb",
-        "group_by": "Suburb",
-        "order_by": "Suburb",
-        "limit": 200,
-    }
-    resp = requests.get(url, params=params, timeout=10)
+    base_url = DEFAULT_BASE_URL.format(
+        dataset_id=table,
+        query="suburb IS NOT NULL",
+        limit=200,                    # Higher limit — ~150 suburbs exist
+    )
+    url = f"{base_url}&select=suburb&group_by=suburb&order_by=suburb"
+
+    resp = requests.get(url, timeout=10)
     resp.raise_for_status()
     data = resp.json()
-    return [r["Suburb"] for r in data.get("results", []) if r.get("Suburb")]
+    return [r["suburb"] for r in data.get("results", []) if r.get("suburb")]
 
 
-def _fetch_streets(base_url: str, table: str, suburb: str) -> list[str]:
+def _fetch_streets(table: str, suburb: str) -> list[str]:
     """Return a sorted list of distinct street names for a given suburb."""
-    url = _api_url(base_url, table)
-    params = {
-        "select": "Street_Name",
-        "group_by": "Street_Name",
-        "where": f'Suburb="{suburb}"',
-        "order_by": "Street_Name",
-        "limit": 500,
-    }
-    resp = requests.get(url, params=params, timeout=10)
+    base_url = DEFAULT_BASE_URL.format(
+        dataset_id=table,
+        query=f'suburb="{suburb}"',
+        limit=DEFAULT_LIMIT,
+    )
+    url = f"{base_url}&select=street_name&group_by=street_name&order_by=street_name"
+
+    resp = requests.get(url, timeout=10)
     resp.raise_for_status()
     data = resp.json()
-    return [r["Street_Name"] for r in data.get("results", []) if r.get("Street_Name")]
+    return [r["street_name"] for r in data.get("results", []) if r.get("street_name")]
 
 
-def _fetch_properties(base_url: str, table: str, suburb: str, street: str) -> list[dict]:
-    """Return property records (house_number + property_number) for suburb/street.
+def _fetch_properties(table: str, suburb: str, street: str) -> list[dict]:
+    """Return property records (house_number + property_id) for suburb/street."""
+    base_url = DEFAULT_BASE_URL.format(
+        dataset_id=table,
+        query=f'suburb="{suburb}" AND street_name="{street}"',
+        limit=DEFAULT_LIMIT,
+    )
+    url = f"{base_url}&select=house_number,property_id&order_by=house_number"
 
-    NOTE: The API *returns* the property field as 'property_number' but
-    *expects* it as 'property_id' when used as a filter in sensor.py queries.
-    """
-    url = _api_url(base_url, table)
-    params = {
-        "select": "house_number,property_number",
-        "where": f'Suburb="{suburb}" AND Street_Name="{street}"',
-        "order_by": "house_number",
-        "limit": 200,
-    }
-    resp = requests.get(url, params=params, timeout=10)
-    resp.raise_for_status()
-    data = resp.json()
-    return [
-        r for r in data.get("results", [])
-        if r.get("house_number") and r.get("property_number")
-    ]
+    print(f"DEBUG: Fetching properties from URL: {url}")
+    print(f"DEBUG: Table parameter: {table}")
+    print(f"DEBUG: Suburb: {suburb}, Street: {street}")
+
+    try:
+        resp = requests.get(url, timeout=10)
+        print(f"DEBUG: Response status code: {resp.status_code}")
+        resp.raise_for_status()
+        data = resp.json()
+        print(f"DEBUG: Response data keys: {data.keys() if isinstance(data, dict) else 'Not a dict'}")
+        return [
+            r for r in data.get("results", [])
+            if r.get("house_number") and r.get("property_id")
+        ]
+    except Exception as e:
+        print(f"DEBUG: Exception occurred: {type(e).__name__}: {e}")
+        raise
 
 
 # ── Config Flow ──────────────────────────────────────────────────────────────
@@ -112,7 +113,6 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 self._streets = await self.hass.async_add_executor_job(
                     _fetch_streets,
-                    DEFAULT_BASE_URL,
                     DEFAULT_WASTE_DAYS_TABLE,
                     self._selected_suburb,
                 )
@@ -124,12 +124,10 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     return await self.async_step_street()
                 errors["base"] = "no_streets_found"
 
-        # Fetch suburbs on first render
         if not self._suburbs:
             try:
                 self._suburbs = await self.hass.async_add_executor_job(
                     _fetch_suburbs,
-                    DEFAULT_BASE_URL,
                     DEFAULT_WASTE_DAYS_TABLE,
                 )
             except Exception:  # noqa: BLE001
@@ -161,7 +159,6 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 self._properties = await self.hass.async_add_executor_job(
                     _fetch_properties,
-                    DEFAULT_BASE_URL,
                     DEFAULT_WASTE_DAYS_TABLE,
                     self._selected_suburb,
                     self._selected_street,
@@ -201,11 +198,8 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Step 3 – select house number and optionally enable kerbside."""
         errors: dict[str, str] = {}
 
-        # Build display map: "42" → property_number value
-        # property_number is what the API returns in results;
-        # sensor.py passes it to the API as property_id in the query URL.
         house_map: dict[str, str] = {
-            str(p["house_number"]): str(p["property_number"])
+            str(p["house_number"]): str(p["property_id"])
             for p in self._properties
         }
 
@@ -218,12 +212,9 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 entry_data = {
                     CONF_PROPERTY_NUMBER: property_number,
                     CONF_ENABLE_KERBSIDE: user_input.get(CONF_ENABLE_KERBSIDE, False),
-                    # Silently stored defaults — not shown in UI
-                    "base_url": DEFAULT_BASE_URL,
                     "waste_days_table": DEFAULT_WASTE_DAYS_TABLE,
                     "waste_weeks_table": DEFAULT_WASTE_WEEKS_TABLE,
                     "kerbside_table": DEFAULT_KERBSIDE_TABLE,
-                    # Friendly address info stored for display purposes
                     "suburb": self._selected_suburb,
                     "street_name": self._selected_street,
                     "house_number": selected_house,
@@ -251,7 +242,7 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
-    # ── Options Flow ─────────────────────────────────────────────────────────
+    # ── Options Flow entry point ─────────────────────────────────────────────
 
     @staticmethod
     @callback
