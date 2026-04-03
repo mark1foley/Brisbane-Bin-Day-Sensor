@@ -26,9 +26,21 @@ While most Councils provide details of their waste collection schedules via thei
    * On Hassbian the final location will be `/home/homeassistant/.homeassistant/custom_components/bne_wc`
 
 ## Configuration
+1. Click the button below to open the repository in HACS:
 
-[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=bne_wc)
+  [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=bne_wc)
 
+2. Select your *Suburb* then click **Submit**.
+3. Select your *Street* then click **Submit**.
+4. Select your *House Number*, chose if you would like a Kerbside Collection Sensor, then click **Submit**.
+3. Check your *Address* then click **Finish**.
+
+You should then see details of the service created.
+
+To change the service address:
+
+1. Remove the existing service using the *Kebab* (3 Dots) menu
+2. Click **Add Service** to add the new address
 
 ## Sensor
 
