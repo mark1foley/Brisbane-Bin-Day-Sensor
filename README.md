@@ -12,6 +12,7 @@ While most Councils provide details of their waste collection schedules via thei
 
 ## Installation (HACS) - Recommended
 1. Click the button below to open the repository in HACS:
+
   [![Open your Home Assistant instance and open a repository inside the HACS dialog.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mark1foley&repository=Brisbane-Bin-Day-Sensor&category=integration)
 2. Click **Download**.
 3. Restart Home Assistant.
