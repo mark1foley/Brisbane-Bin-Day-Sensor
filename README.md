@@ -14,6 +14,7 @@ While most Councils provide details of their waste collection schedules via thei
 1. Click the button below to open the repository in HACS:
 
   [![Open your Home Assistant instance and open a repository inside the HACS dialog.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mark1foley&repository=Brisbane-Bin-Day-Sensor&category=integration)
+
 2. Click **Download**.
 3. Restart Home Assistant.
 
@@ -26,39 +27,8 @@ While most Councils provide details of their waste collection schedules via thei
 
 ## Configuration
 
-You will need to obtain your property number from the [Brisbane City Council Waste Collection Open Data Site](https://data.brisbane.qld.gov.au/explore/dataset/waste-collection-days-collection-days/table/).  Search for your address and copy the value in the Property_Number column of the table.
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=bne_wc)
 
-Add the following to your `configuration.yaml` file:
-
-```yaml
-
-sensor:
-  - platform: bne_wc
-    name: Brisbane Bin Day
-    scan_interval: 300
-    base_url: https://www.data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets/{dataset_id}/records?where={query}&limit=1
-    days_table: waste-collection-days-collection-days
-    weeks_table: waste-collection-days-collection-weeks
-    kerbside_table: kerbside-large-item-collection-schedule
-    property_number: <value you copied above>
-```
-
-Configuration variables:
-
-- **name** (*Required*): Name of the sensor in HA
-- **scan_interval** (*Optional*): Home Assistant updates sensors every 30 seconds by default.  As this data changes slowly I suggest a larger interval 
-- **base_url** (*Required*): URL for the brisbane City Council Open Data website
-- **days_table** (*Required*): Name of the open data table that contain details of collection days for each property
-- **weeks_table** (*Required*): Name of the open data table that contain details which additional bins are collected each week
-- **kerbside_table** (*Optional*): Name of the open data table that contains details of the annual kerbside collections
-- **property_number** (*Required*): Unique property number to be used (from the Brisbane City Council Waster Collection Data Open Data Site referenced above
-- **icon** (*Optional*): Name of the icon to use for the "normal" week sensor (defaults to mdi:trash-can)
-- **recycle_icon** (*Optional*): Name of the icon to use for the "recycle" week sensor (defaults to mdi:recycle)
-- **alert_hours** (*Optional*): Number of hours before bin day to raise alert (defaults to 12)
-- **green_bin** (*Optional*): true/false to indicate if you have a green bin (reflected in the Extra Bin attribute for the "normal" weeks
-- **kerbside_alert_hours** (*Optional*): Number of hours before kerbside to raise alert (defaults to 168)
-- **kerbside_icon** (*Optional*): Name of the icon to use for the "kerbside" sensor (defaults to mdi:truck)
-- **collection_time**  (*Optional*): Usual collection time for bins each weeks. At that time the "Due In" attribute of the sensors will reach 0. (defaults to 5:00)
 
 ## Sensor
 
