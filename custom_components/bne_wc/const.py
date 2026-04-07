@@ -57,7 +57,7 @@ ATTR_LAST_UPDATE_FAILED             = "last_update_failed"
 DEFAULT_ICON                = "mdi:trash-can"
 DEFAULT_RECYCLE_ICON        = "mdi:recycle"
 DEFAULT_KERBSIDE_ICON       = "mdi:truck"
-DEFAULT_ALERT_HOURS         = 24
+DEFAULT_ALERT_HOURS         = 12
 DEFAULT_KERBSIDE_ALERT_HOURS = 168
 DEFAULT_COLLECTION_TIME     = "05:00"
 
