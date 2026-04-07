@@ -20,7 +20,14 @@
         "description": "Choose your house number on {street}, {suburb}.",
         "data": {
           "house_number": "House Number",
-          "enable_kerbside": "Enable Kerbside Collection Sensor"
+          "has_green_bin": "Property has green bin",
+          "alert_hours":"Number of hours to start alerts before collection time",
+          "collection_time":"Approximate collection time",
+          "icon":"Icon for normal collection",
+          "recycle_icon":"Icon for recycling collection",
+          "enable_kerbside": "Enable Kerbside Collection Sensor",
+          "kerbside_alert_hours":"Number of hours to start alerts before kerbside collection",
+          "kerbside_icon":"Icon for kerbside collection"
         }
       }
     },
@@ -37,7 +44,14 @@
         "title": "Brisbane Waste Collection Options",
         "description": "Configure your waste collection options.",
         "data": {
-          "enable_kerbside": "Enable Kerbside Collection Sensor"
+          "has_green_bin": "Property has green bin",
+          "alert_hours":"Number of hours to start alerts before collection time",
+          "collection_time":"Approximate collection time",
+          "icon":"Icon for normal collection",
+          "recycle_icon":"Icon for recycling collection",
+          "enable_kerbside": "Enable Kerbside Collection Sensor",
+          "kerbside_alert_hours":"Number of hours to start alerts before kerbside collection",
+          "kerbside_icon":"Icon for kerbside collection"
         }
       }
     }
