@@ -23,6 +23,10 @@ from .const import (
     CONF_PROPERTY_NUMBER,
     CONF_RECYCLE_ICON,
     DEFAULT_BASE_URL,
+    DEFAULT_WASTE_DAYS_TABLE,
+    DEFAULT_WASTE_WEEKS_TABLE,
+    DEFAULT_KERBSIDE_TABLE,
+    DEFAULT_LIMIT,
     DEFAULT_ICON,
     DEFAULT_RECYCLE_ICON,
     DEFAULT_KERBSIDE_ICON,
@@ -34,47 +38,58 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# ── Brisbane Open Data API helpers ──────────────────────────────────────────
+
 def _fetch_suburbs(table: str) -> list[str]:
     """Return a sorted list of distinct suburbs from the days table."""
     base_url = DEFAULT_BASE_URL.format(
         dataset_id=table,
         query="suburb IS NOT NULL",
-        limit=200,
+        limit=200,                    # Higher limit — ~150 suburbs exist
     )
     url = f"{base_url}&select=suburb&group_by=suburb&order_by=suburb"
+
     resp = requests.get(url, timeout=10)
     resp.raise_for_status()
     data = resp.json()
     return [r["suburb"] for r in data.get("results", []) if r.get("suburb")]
+
 
 def _fetch_streets(table: str, suburb: str) -> list[str]:
     """Return a sorted list of distinct street names for a given suburb."""
     base_url = DEFAULT_BASE_URL.format(
         dataset_id=table,
         query=f'suburb="{suburb}"',
-        limit=200,
+        limit=DEFAULT_LIMIT,
     )
     url = f"{base_url}&select=street_name&group_by=street_name&order_by=street_name"
+
     resp = requests.get(url, timeout=10)
     resp.raise_for_status()
     data = resp.json()
     return [r["street_name"] for r in data.get("results", []) if r.get("street_name")]
+
 
 def _fetch_properties(table: str, suburb: str, street: str) -> list[dict]:
     """Return property records (house_number + property_id) for suburb/street."""
     base_url = DEFAULT_BASE_URL.format(
         dataset_id=table,
         query=f'suburb="{suburb}" AND street_name="{street}"',
-        limit=200,
+        limit=DEFAULT_LIMIT,
     )
     url = f"{base_url}&select=house_number,property_id&order_by=house_number"
-    resp = requests.get(url, timeout=10)
-    resp.raise_for_status()
-    data = resp.json()
-    return [
-        r for r in data.get("results", [])
-        if r.get("house_number") and r.get("property_id")
-    ]
+ 
+    try:
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        return [
+            r for r in data.get("results", [])
+            if r.get("house_number") and r.get("property_id")
+        ]
+    except Exception as e:
+        _LOGGER.exception("Failed to fetch properties: %s", e)
+        raise
 
 def _options_schema(defaults: dict) -> vol.Schema:
     """Build the shared schema used by both Step 3 and the Options Flow."""
@@ -95,6 +110,10 @@ def _options_schema(defaults: dict) -> vol.Schema:
         }
     )
 
+def _strip_seconds(time_str: str) -> str:
+    """Ensure time value is stored as HH:MM, stripping seconds if present."""
+    return time_str[:5] if len(time_str) > 5 else time_str
+
 class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Brisbane Bin Day Sensor."""
 
@@ -107,6 +126,7 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._properties: list[dict] = []
         self._selected_suburb: str = ""
         self._selected_street: str = ""
+        self._config_entry: config_entries.ConfigEntry | None = None  # Initialize _config_entry
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Step 1 – select suburb."""
@@ -185,7 +205,7 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_ICON: user_input.get(CONF_ICON, DEFAULT_ICON),
                     CONF_RECYCLE_ICON: user_input.get(CONF_RECYCLE_ICON, DEFAULT_RECYCLE_ICON),
                     CONF_ALERT_HOURS: user_input.get(CONF_ALERT_HOURS, DEFAULT_ALERT_HOURS),
-                    CONF_COLLECTION_TIME: user_input.get(CONF_COLLECTION_TIME, DEFAULT_COLLECTION_TIME),
+                    CONF_COLLECTION_TIME: _strip_seconds(user_input.get(CONF_COLLECTION_TIME, DEFAULT_COLLECTION_TIME)),
                     CONF_HAS_GREEN_BIN: user_input.get(CONF_HAS_GREEN_BIN, False),
                     CONF_KERBSIDE_ICON: user_input.get(CONF_KERBSIDE_ICON, DEFAULT_KERBSIDE_ICON),
                     CONF_KERBSIDE_ALERT_HOURS: user_input.get(CONF_KERBSIDE_ALERT_HOURS, DEFAULT_KERBSIDE_ALERT_HOURS),
@@ -250,6 +270,8 @@ class BneWasteOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Manage all sensor options on a single page."""
         if user_input is not None:
+            if CONF_COLLECTION_TIME in user_input:
+                user_input[CONF_COLLECTION_TIME] = _strip_seconds(user_input[CONF_COLLECTION_TIME]) 
             return self.async_create_entry(title="", data=user_input)
 
         defaults = {**self._config_entry.data, **self._config_entry.options}
