@@ -26,6 +26,11 @@ While most Councils provide details of their waste collection schedules via thei
    * On Hassbian the final location will be `/home/homeassistant/.homeassistant/custom_components/bne_wc`
 
 ## Configuration
+
+All configuration is now gui based.
+
+![screenshot](Confguration.png)
+
 1. Click the button below to open the repository in HACS:
 
   [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=bne_wc)
@@ -33,7 +38,7 @@ While most Councils provide details of their waste collection schedules via thei
 2. Select your *Suburb* then click **Submit**.
 3. Select your *Street* then click **Submit**.
 4. Select your *House Number*, chose if you would like a Kerbside Collection Sensor, then click **Submit**.
-3. Check your *Address* then click **Finish**.
+5. Check your *Address* and set preferences then click **Finish**.
 
 You should then see details of the service created.
 
@@ -118,14 +123,8 @@ Home assistant alerts that use notifications can be setup to monitor the state o
 
 ## Reporting an Issue
 
-1. Setup your logger to print debug messages for this component using:
-```yaml
-logger:
-  default: info
-  logs:
-    custom_components.bne_wc: debug
-```
-2. Restart HA
+1. Go to Settings->Devices and services->Brisbane Bin Day Sensor
+2. Use the *Kebab* (3 Dots) menu in the upper right-hand corner to enable debug logging
 3. Verify you're still having the issue
 4. File an issue in this Github Repository containing your HA log (Developer section > Info > Load Full Home Assistant Log)
    * You can paste your log file at pastebin https://pastebin.com/ and submit a link.
