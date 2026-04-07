@@ -29,7 +29,7 @@ While most Councils provide details of their waste collection schedules via thei
 
 All configuration is now gui based.
 
-
+![screenshot](Configuration.png)
 
 1. Click the button below to open the repository in HACS:
 
