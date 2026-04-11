@@ -11,7 +11,7 @@ from .const import DOMAIN
  
 _LOGGER = logging.getLogger(__name__)
  
-PLATFORMS = ["sensor"]
+PLATFORMS = ["binary_sensor"]
  
  
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

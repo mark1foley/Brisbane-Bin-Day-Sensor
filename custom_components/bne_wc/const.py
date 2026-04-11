@@ -19,11 +19,14 @@ DEFAULT_KERBSIDE_TABLE      = "kerbside-large-item-collection-schedule"
 
 # ── Config entry keys ────────────────────────────────────────────────────────
 
+CONF_SENSOR_NAME            = "name"
 CONF_PROPERTY_NUMBER        = "property_number"
 CONF_WASTE_DAYS_TABLE       = "waste_days_table"
 CONF_WASTE_WEEKS_TABLE      = "waste_weeks_table"
 CONF_KERBSIDE_TABLE         = "kerbside_table"
-CONF_BASE_URL               = "base_url"
+CONF_SUBURB                 = "suburb"
+CONF_STREET_NAME            = "street_name"
+CONF_HOUSE_NUMBER           = "house_number"
 CONF_ICON                   = "icon"
 CONF_RECYCLE_ICON           = "recycle_icon"
 CONF_KERBSIDE_ICON          = "kerbside_icon"
@@ -37,7 +40,7 @@ CONF_ENABLE_KERBSIDE        = "enable_kerbside"
 
 ATTR_PROPERTY_NUMBER                = "property_number"
 ATTR_SUBURB                         = "suburb"
-ATTR_STREET                         = "street"
+ATTR_STREET                         = "street_name"
 ATTR_HOUSE_NUMBER                   = "house_number"
 ATTR_COLLECTION_DAY                 = "collection_day"
 ATTR_COLLECTION_ZONE                = "collection_zone"
@@ -54,11 +57,12 @@ ATTR_LAST_UPDATE_FAILED             = "last_update_failed"
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
 
+DEFAULT_SENSOR_NAME         = "Brisbane Bin Day"
 DEFAULT_ICON                = "mdi:trash-can"
 DEFAULT_RECYCLE_ICON        = "mdi:recycle"
 DEFAULT_KERBSIDE_ICON       = "mdi:truck"
 DEFAULT_ALERT_HOURS         = 12
-DEFAULT_KERBSIDE_ALERT_HOURS = 168
+DEFAULT_KERBSIDE_ALERT_HOURS = 168              # Kerbside collections are annual and require prep so longer alert time
 DEFAULT_COLLECTION_TIME     = "05:00"
 
 # ── Misc ─────────────────────────────────────────────────────────────────────

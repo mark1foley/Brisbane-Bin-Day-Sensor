@@ -17,16 +17,24 @@ from .const import (
     CONF_COLLECTION_TIME,
     CONF_ENABLE_KERBSIDE,
     CONF_HAS_GREEN_BIN,
+    CONF_SENSOR_NAME,
+    CONF_SUBURB,
+    CONF_STREET_NAME,
+    CONF_HOUSE_NUMBER,
     CONF_ICON,
     CONF_KERBSIDE_ALERT_HOURS,
     CONF_KERBSIDE_ICON,
     CONF_PROPERTY_NUMBER,
     CONF_RECYCLE_ICON,
+    CONF_WASTE_DAYS_TABLE,
+    CONF_WASTE_WEEKS_TABLE,
+    CONF_KERBSIDE_TABLE,
     DEFAULT_BASE_URL,
     DEFAULT_WASTE_DAYS_TABLE,
     DEFAULT_WASTE_WEEKS_TABLE,
     DEFAULT_KERBSIDE_TABLE,
     DEFAULT_LIMIT,
+    DEFAULT_SENSOR_NAME,
     DEFAULT_ICON,
     DEFAULT_RECYCLE_ICON,
     DEFAULT_KERBSIDE_ICON,
@@ -133,7 +141,7 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            self._selected_suburb = user_input["suburb"]
+            self._selected_suburb = user_input[CONF_SUBURB]
             try:
                 self._streets = await self.hass.async_add_executor_job(_fetch_streets, DEFAULT_WASTE_DAYS_TABLE, self._selected_suburb)
             except Exception:
@@ -154,7 +162,7 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
-                {vol.Required("suburb"): vol.In(self._suburbs)}
+                {vol.Required(CONF_SUBURB): vol.In(self._suburbs)}
             ),
             errors=errors,
         )
@@ -164,7 +172,7 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            self._selected_street = user_input["street_name"]
+            self._selected_street = user_input[CONF_STREET_NAME]
             try:
                 self._properties = await self.hass.async_add_executor_job(_fetch_properties, DEFAULT_WASTE_DAYS_TABLE, self._selected_suburb, self._selected_street)
             except Exception:
@@ -178,7 +186,7 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="street",
             data_schema=vol.Schema(
-                {vol.Required("street_name"): vol.In(self._streets)}
+                {vol.Required(CONF_STREET_NAME): vol.In(self._streets)}
             ),
             errors=errors,
             description_placeholders={"suburb": self._selected_suburb},
@@ -194,12 +202,13 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         }
 
         if user_input is not None:
-            selected_house = user_input["house_number"]
+            selected_house = user_input[CONF_HOUSE_NUMBER]
             property_number = house_map.get(selected_house)
             if not property_number:
                 errors["base"] = "property_not_found"
             else:
                 entry_data = {
+                    CONF_SENSOR_NAME: user_input.get(CONF_SENSOR_NAME, DEFAULT_SENSOR_NAME),
                     CONF_PROPERTY_NUMBER: property_number,
                     CONF_ENABLE_KERBSIDE: user_input.get(CONF_ENABLE_KERBSIDE, False),
                     CONF_ICON: user_input.get(CONF_ICON, DEFAULT_ICON),
@@ -209,18 +218,19 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_HAS_GREEN_BIN: user_input.get(CONF_HAS_GREEN_BIN, False),
                     CONF_KERBSIDE_ICON: user_input.get(CONF_KERBSIDE_ICON, DEFAULT_KERBSIDE_ICON),
                     CONF_KERBSIDE_ALERT_HOURS: user_input.get(CONF_KERBSIDE_ALERT_HOURS, DEFAULT_KERBSIDE_ALERT_HOURS),
-                    "waste_days_table": DEFAULT_WASTE_DAYS_TABLE,
-                    "waste_weeks_table": DEFAULT_WASTE_WEEKS_TABLE,
-                    "kerbside_table": DEFAULT_KERBSIDE_TABLE,
-                    "suburb": self._selected_suburb,
-                    "street_name": self._selected_street,
-                    "house_number": selected_house,
+                    CONF_WASTE_DAYS_TABLE: DEFAULT_WASTE_DAYS_TABLE,
+                    CONF_WASTE_WEEKS_TABLE: DEFAULT_WASTE_WEEKS_TABLE,
+                    CONF_KERBSIDE_TABLE: DEFAULT_KERBSIDE_TABLE,
+                    CONF_SUBURB: self._selected_suburb,
+                    CONF_STREET_NAME: self._selected_street,
+                    CONF_HOUSE_NUMBER: selected_house,
                 }
                 title = f"{selected_house} {self._selected_street}, {self._selected_suburb}"
                 return self.async_create_entry(title=title, data=entry_data)
 
         # Use defaults for first run
         defaults = {
+            CONF_SENSOR_NAME: DEFAULT_SENSOR_NAME,
             CONF_ICON: DEFAULT_ICON,
             CONF_RECYCLE_ICON: DEFAULT_RECYCLE_ICON,
             CONF_ALERT_HOURS: DEFAULT_ALERT_HOURS,
@@ -229,18 +239,15 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_ENABLE_KERBSIDE: False,
         }
 
-        # If this is a subsequent run, populate with current values
-        if self._config_entry is not None:
-            defaults.update(self._config_entry.data)
-
         house_schema = vol.Schema(
             {
-                vol.Required("house_number"): selector.SelectSelector(
+                vol.Required(CONF_HOUSE_NUMBER): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=sorted(house_map.keys()),
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
+                vol.Optional(CONF_SENSOR_NAME, default=defaults.get(CONF_SENSOR_NAME, DEFAULT_SENSOR_NAME)): selector.TextSelector(),
             }
         ).extend(_options_schema(defaults).schema)
 
@@ -252,6 +259,32 @@ class BneWasteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "suburb": self._selected_suburb,
                 "street": self._selected_street,
             },
+        )
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Handle reconfiguration of an existing entry."""
+        self._config_entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        
+        if user_input is not None:
+            entry_data = {**self._config_entry.data, **user_input}
+            if CONF_COLLECTION_TIME in entry_data:
+                entry_data[CONF_COLLECTION_TIME] = _strip_seconds(entry_data[CONF_COLLECTION_TIME])
+            return self.async_update_reload_and_abort(
+                self._config_entry,
+                data=entry_data,
+            )
+
+        defaults = {**self._config_entry.data, **self._config_entry.options}
+
+        reconfigure_schema = vol.Schema(
+            {
+                vol.Optional(CONF_SENSOR_NAME, default=defaults.get(CONF_SENSOR_NAME, DEFAULT_SENSOR_NAME)): selector.TextSelector(),
+            }
+        ).extend(_options_schema(defaults).schema)
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=reconfigure_schema,
         )
 
     @staticmethod
