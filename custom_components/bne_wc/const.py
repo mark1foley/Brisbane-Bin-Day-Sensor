@@ -10,6 +10,7 @@ DEFAULT_BASE_URL = (
 )
 
 DEFAULT_LIMIT = 100
+DEFAULT_CONFIG_LIMIT = 1000
 
 # ── Dataset table names ──────────────────────────────────────────────────────
 

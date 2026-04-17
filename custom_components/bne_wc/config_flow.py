@@ -33,7 +33,7 @@ from .const import (
     DEFAULT_WASTE_DAYS_TABLE,
     DEFAULT_WASTE_WEEKS_TABLE,
     DEFAULT_KERBSIDE_TABLE,
-    DEFAULT_LIMIT,
+    DEFAULT_CONFIG_LIMIT,
     DEFAULT_SENSOR_NAME,
     DEFAULT_ICON,
     DEFAULT_RECYCLE_ICON,
@@ -53,7 +53,7 @@ def _fetch_suburbs(table: str) -> list[str]:
     base_url = DEFAULT_BASE_URL.format(
         dataset_id=table,
         query="suburb IS NOT NULL",
-        limit=200,                    # Higher limit — ~150 suburbs exist
+        limit=DEFAULT_CONFIG_LIMIT,
     )
     url = f"{base_url}&select=suburb&group_by=suburb&order_by=suburb"
 
@@ -68,7 +68,7 @@ def _fetch_streets(table: str, suburb: str) -> list[str]:
     base_url = DEFAULT_BASE_URL.format(
         dataset_id=table,
         query=f'suburb="{suburb}"',
-        limit=DEFAULT_LIMIT,
+        limit=DEFAULT_CONFIG_LIMIT,
     )
     url = f"{base_url}&select=street_name&group_by=street_name&order_by=street_name"
 
@@ -77,16 +77,15 @@ def _fetch_streets(table: str, suburb: str) -> list[str]:
     data = resp.json()
     return [r["street_name"] for r in data.get("results", []) if r.get("street_name")]
 
-
 def _fetch_properties(table: str, suburb: str, street: str) -> list[dict]:
     """Return property records (house_number + property_id) for suburb/street."""
     base_url = DEFAULT_BASE_URL.format(
         dataset_id=table,
         query=f'suburb="{suburb}" AND street_name="{street}"',
-        limit=DEFAULT_LIMIT,
+        limit=DEFAULT_CONFIG_LIMIT,
     )
-    url = f"{base_url}&select=house_number,property_id&order_by=house_number"
- 
+    url = f"{base_url}&select=house_number,property_id&group_by=house_number,property_id&order_by=house_number"
+
     try:
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()

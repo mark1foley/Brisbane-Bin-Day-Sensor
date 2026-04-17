@@ -8,5 +8,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/mark1foley/Brisbane-Bin-Day-Sensor/issues",
   "requirements": ["requests", "python-dateutil"],
-  "version": "2.2.0"
+  "version": "2.2.1"
 }
